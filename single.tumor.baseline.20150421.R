@@ -348,3 +348,5 @@ for(c in 1:length(core.cancer))
   }
   all.res[[core.cancer[c]]] = core.res
 }
+
+#　From github 
