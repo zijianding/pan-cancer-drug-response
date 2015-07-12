@@ -1,3 +1,2 @@
-# pan-cancer-drug-response
-1. Pan cancer
-2. Cancer Pan
+# Pan-cancer analysis of clinical response to anti-cancer drugs
+# cisplatin as the 1st drug
