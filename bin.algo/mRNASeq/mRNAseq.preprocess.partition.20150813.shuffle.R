@@ -69,9 +69,12 @@ for(i in 1:length(all_pats))
   all_pats[i] = paste(curr_cancer,pat_arr[1],pat_arr[2],pat_arr[3],"01",sep=".")
 }
 
-sum(all_pats %in% colnames(cisplatin.dat)) == ncol(cisplatin.dat)
+sum(all_pats %in% colnames(cisplatin.dat)) < length(all_pats)
 
+pat_ix = match(colnames(cisplatin.dat),all_pats)
 
+all_pats = all_pats[pat_ix]
+cisplatin.info = cisplatin.info[pat_ix,]
 
 
 

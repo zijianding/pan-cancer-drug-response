@@ -16,23 +16,22 @@ shuffle = as.numeric(as.character(args[6])) #"NULL"/1-100
 input_type = args[7] #molecular_only/clinical_only/clinical_molecular
 output_type = args[8] #"performance" for ROC, "marker" for extract marker, "shuffle" for permutation
 
-source(args[9]) #function file and parameter file
+source("source_all.R") #function file and parameter file
 
 #desktop
-# setwd("C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/mRNAseq")
-# data_file = "cisplatin.mRNAseq.gdac_20141206.preprocess.txt"
-# info_file = "cisplatin.mRNAseq_fold_cv.mat.txt"
+# data_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/mRNAseq/cisplatin.mRNAseq.gdac_20141206.preprocess.txt"
+# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/shuffle/shuffle_response.in_cancer/mRNA_seq/cisplatin.mRNAseq_shuffle_info.1.txt"
 # output_folder = "."
 # create_folder = "test"
 # test_fold=1
 # shuffle = NULL
 # 
 # input_type = "molecular_only" #NOTICE, input_type and output_type must be afront of source
-# output_type = "marker"
+# output_type = "shuffle"
 # 
-# setwd("C:/Users/zding/workspace/projects/drug_sensitivity/bin.algo/mRNASeq/elastic_net.logistic/")
+# setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic/")
 # source("source_all.R")
-# source("parameters.R")
+
 
 
 #both
