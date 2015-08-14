@@ -22,7 +22,7 @@ add_clinic = FALSE
 
 if( input_type == "molecular_only" )
 {
-  find_diff_genes = FALSE
+  find_diff_genes = TRUE
   diff_type = "wilcox" # "ttest"/"wilcox"/"regression"
   filter_low_exp = FALSE
   exp_normalize = FALSE
