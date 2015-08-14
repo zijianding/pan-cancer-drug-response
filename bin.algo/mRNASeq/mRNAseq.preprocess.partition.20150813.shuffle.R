@@ -168,3 +168,19 @@ for( shuffle.times in 1:100 )
 
 
 
+###etc file for qsub###
+shuffle.times = 1:100
+test_partition = 1:100
+file_name = paste("/data/home/zding/drug_sensitivity/data/shuffle/shuffle_response.in_cancer/mRNA_seq/cisplatin.mRNAseq_shuffle_info.",shuffle.times,".txt",sep="")
+
+
+test = rep( test_partition,times=length(test_partition) )
+shuffle = rep( shuffle.times,each=length(test_partition))
+files = rep(file_name,each=length(test_partition))
+
+
+df = data.frame(test=test,shuffle=shuffle,files=files)
+write.table(df,"C:/Users/zding/workspace/projects/drug_sensitivity/data/shuffle/shuffle_response.in_cancer/mRNA_seq/shuffle_etc.txt",
+            col.names=F,row.names=F,quote=F,sep="\t")
+
+
