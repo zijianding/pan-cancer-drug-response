@@ -21,10 +21,10 @@ source("source_all.R") #function file and parameter file
 #desktop
 # data_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/mRNAseq/cisplatin.mRNAseq.gdac_20141206.preprocess.txt"
 # info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/shuffle/shuffle_response.in_cancer/mRNA_seq/cisplatin.mRNAseq_shuffle_info.1.txt"
-# output_folder = "."
+# output_folder = "C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic"
 # create_folder = "test"
 # test_fold=1
-# shuffle = NULL
+# shuffle = 1
 # 
 # input_type = "molecular_only" #NOTICE, input_type and output_type must be afront of source
 # output_type = "shuffle"
@@ -90,14 +90,16 @@ if( output_type!="marker"  ) # shuffle/performance
   {
     cl = makeCluster(no_cores)
     registerDoParallel(cl)
-    list_tmp = test_gene(train.dat, test.dat, cisplatin.info, 
-                         type=test_type, parallel=T)
+    list_tmp = test_gene(train.dat, test.dat, cisplatin.info,parallel=T,
+                         type = test_type,sig_gene = sig_gene,
+                         p_thresh=p_thresh,q_thresh=q_thresh,p_step=p_step,
+                         q_step=q_step,p_up = p_up,q_up = q_up)
     stopImplicitCluster()
     stopCluster(cl)
     train.dat = list_tmp[[1]]
     test.dat = list_tmp[[2]]
     type = list_tmp[[3]]
-    thresh = nrow(train.dat)
+    thresh = list_tmp[[4]]
     tmp_str = paste("With ",type," and threshold ",thresh,", ",
                     nrow(train.dat)," genes are remained",sep="")
     print(tmp_str)
@@ -156,8 +158,10 @@ if( output_type == "marker" )
   {
     cl = makeCluster(no_cores)
     registerDoParallel(cl)
-    list_tmp = test_gene(train.dat, test.dat, cisplatin.info, 
-                         type=test_type, parallel=T)
+    list_tmp = test_gene(train.dat, test.dat, cisplatin.info,parallel=T,
+                         type = test_type,sig_gene = sig_gene,
+                         p_thresh=p_thresh,q_thresh=q_thresh,p_step=p_step,
+                         q_step=q_step,p_up = p_up,q_up = q_up)
     stopImplicitCluster()
     stopCluster(cl)
     train.dat = list_tmp[[1]]
@@ -293,7 +297,7 @@ while( length(list_features[[2]]) <= feature_min )
   freq = freq - freq_step
   list_features = gene_selection(t(best_beta),freq=freq)
 }
-tmp_str = paste( "Frequency ",freq," to select recurrent features" )
+tmp_str = paste( "Frequency ",freq," to select",length(list_features[[2]]), "recurrent features" )
 print(tmp_str)
 
 #refine data by recurrent features
@@ -359,8 +363,8 @@ if( output_type == "shuffle" )
   dir.create(file.path(output_folder, create_folder), showWarnings = FALSE)
   setwd(file.path(output_folder,create_folder))
   new_folder = paste(output_folder,create_folder,sep="/")
-  dir.create(file.path(new_folder,shuffle), showWarnings = FALSE)
-  setwd(file.path(new_folder,shuffle))
+  dir.create(file.path(new_folder,as.character(shuffle)), showWarnings = F)
+  setwd( file.path(new_folder,as.character(shuffle)) )
   
   #feature frequncy#
   tmp_str = paste("pan.elanet.feature_freq.test_",test_fold-3,".20150701.tiff",sep="")

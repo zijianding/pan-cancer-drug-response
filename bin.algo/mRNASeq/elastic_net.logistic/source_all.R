@@ -1,5 +1,5 @@
 ###lap-top###
-setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic/functions/")
+setwd("functions/")
 source("bootstrap_sample.R")
 source("partition_data.R")
 source("comb.R")
@@ -15,7 +15,7 @@ source("parameters.R")
 
 
 ###cluster###
-# setwd("/data/home/zding/drug_sensitivity/bin.algo/mRNA/elastic_net/functions")
+# setwd("functions/")
 # source("bootstrap_sample.R")
 # source("partition_data.R")
 # source("comb.R")

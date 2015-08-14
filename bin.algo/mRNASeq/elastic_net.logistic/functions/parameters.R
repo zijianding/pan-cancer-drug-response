@@ -12,8 +12,17 @@ freq = 0.8
 info_col = 3
 
 #initialization
+#identify differential genes
 find_diff_genes = TRUE
-diff_type = "ttest" # "ttest"/"wilcox"/"regression"
+test_type = "wilcox" # "ttest"/"wilcox"/"regression"
+sig_gene = 50
+p_thresh=0.001
+q_thresh=0.05
+p_step=0.001
+q_step=0.05
+p_up = 0.05
+q_up = 0.2
+
 filter_low_exp = FALSE
 exp_normalize = FALSE
 add_clinic = FALSE
@@ -22,8 +31,17 @@ add_clinic = FALSE
 
 if( input_type == "molecular_only" )
 {
+  
   find_diff_genes = TRUE
-  diff_type = "wilcox" # "ttest"/"wilcox"/"regression"
+  test_type = "wilcox" # "ttest"/"wilcox"/"regression"
+  sig_gene = 50
+  p_thresh=0.001
+  q_thresh=0.05
+  p_step=0.001
+  q_step=0.05
+  p_up = 0.05
+  q_up = 0.2
+  
   filter_low_exp = FALSE
   exp_normalize = FALSE
   add_clinic = FALSE
@@ -32,7 +50,8 @@ if( input_type == "molecular_only" )
 if( input_type == "clinical_only" )
 {
   find_diff_genes = FALSE
-  diff_type = NULL # "ttest"/"wilcox"/"regression"
+  test_type = NULL # "ttest"/"wilcox"/"regression"
+  
   filter_low_exp = FALSE
   exp_normalize = FALSE
   add_clinic = TRUE
@@ -41,7 +60,15 @@ if( input_type == "clinical_only" )
 if( input_type == "clinical_molecular" )
 {
   find_diff_genes = TRUE
-  diff_type = "wilcox" # "ttest"/"wilcox"/"regression"
+  test_type = "regression" # "ttest"/"wilcox"/"regression"
+  sig_gene = 50
+  p_thresh=0.001
+  q_thresh=0.05
+  p_step=0.001
+  q_step=0.05
+  p_up = 0.05
+  q_up = 0.2
+  
   filter_low_exp = FALSE
   exp_normalize = FALSE
   add_clinic = TRUE

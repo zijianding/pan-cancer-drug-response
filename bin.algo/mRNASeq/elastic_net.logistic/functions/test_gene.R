@@ -1,5 +1,7 @@
 test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
-                      p_thresh=0.05,q_thresh=0.05, type="ttest",parallel=F)
+                      p_thresh=0.05,q_thresh=0.05, type="ttest",
+                      p_step=0.001,q_step=0.05, p_up = 0.05,q_up = 0.2,
+                      parallel=F)
 {
   #input data: row as genes and col as samples
   #output data:row as genes and col as samples
@@ -49,8 +51,8 @@ test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
     q_use = TRUE
     while( sum(q_values<q_thresh) <= sig_gene )
     {
-      q_thresh = q_thresh + 0.05
-      if( q_thresh > 0.25)
+      q_thresh = q_thresh + p_step
+      if( q_thresh > q_up)
       {
         q_use = FALSE
         break
@@ -62,8 +64,8 @@ test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
     {
       while( sum(p_values<p_thresh) <= sig_gene  )
       {
-        p_thresh = p_thresh + 0.05
-        if(p_thresh > 0.15)
+        p_thresh = p_thresh + p_step
+        if(p_thresh > p_up )
         {
           p_use = FALSE
           break
@@ -133,8 +135,8 @@ test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
     q_use = TRUE
     while( sum(q_values<q_thresh) <= sig_gene )
     {
-      q_thresh = q_thresh + 0.05
-      if( q_thresh > 0.25)
+      q_thresh = q_thresh + q_step
+      if( q_thresh > q_up)
       {
         q_use = FALSE
         break
@@ -146,8 +148,8 @@ test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
     {
       while( sum(p_values<p_thresh) <= sig_gene  )
       {
-        p_thresh = p_thresh + 0.05
-        if(p_thresh > 0.15)
+        p_thresh = p_thresh + p_step
+        if(p_thresh > p_up )
         {
           p_use = FALSE
           break
@@ -219,8 +221,8 @@ test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
     q_use = TRUE
     while( sum(q_values<q_thresh) <= sig_gene )
     {
-      q_thresh = q_thresh + 0.05
-      if( q_thresh > 0.25)
+      q_thresh = q_thresh + q_step
+      if( q_thresh > q_up )
       {
         q_use = FALSE
         break
@@ -232,8 +234,8 @@ test_gene <- function(train_dat, test_dat, info, sig_gene = 50,
     {
       while( sum(p_values<p_thresh) <= sig_gene  )
       {
-        p_thresh = p_thresh + 0.05
-        if(p_thresh > 0.15)
+        p_thresh = p_thresh + p_step
+        if(p_thresh > p_up)
         {
           p_use = FALSE
           break
