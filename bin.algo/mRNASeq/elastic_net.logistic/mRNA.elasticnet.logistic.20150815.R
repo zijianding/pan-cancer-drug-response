@@ -13,8 +13,14 @@ create_folder = args[4]
 test_fold = as.numeric(as.character(args[5]))#the current test fold, ranging from 1 to 100
 shuffle = as.numeric(as.character(args[6])) #"NULL"/1-100
 
-input_type = args[7] #molecular_only/clinical_only/clinical_molecular
-output_type = args[8] #"performance" for ROC, "marker" for extract marker, "shuffle" for permutation
+input_type = args[7]   # molecular_only/clinical_only/clinical_molecular
+output_type = args[8]  # "performance" for ROC, "marker" for extract marker, "shuffle" for permutation
+calc_cancer = args[9]  # "sin_cancer"/"pan_cancer"
+calc_gene = args[10]   # "all_gene"/"gene_set"
+
+core.cancer = args[11] # "BLCA" etc/NULL
+gene_set = args[12]    # NULL/gene_set
+
 
 source("source_all.R") #function file and parameter file
 
@@ -28,6 +34,11 @@ source("source_all.R") #function file and parameter file
 # 
 # input_type = "molecular_only" #NOTICE, input_type and output_type must be afront of source
 # output_type = "shuffle"
+# calc_cancer = "pan_cancer"
+# calc_gene = "gene_set"
+# 
+# core.cancer = NULL
+# gene_set = "C:/Users/zding/workspace/projects/drug_sensitivity/data/gene_sets/cgp.2012.txt"
 # 
 # setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic/")
 # source("source_all.R")
@@ -40,17 +51,26 @@ cisplatin.info = read.table(info_file,sep="\t",header=T,quote="")
 test_fold = test_fold + info_col
 
 
-#libraries
-library(glmnet)
-library(doParallel)
-library(foreach)
-library(pracma)
-no_cores = detectCores()
+
 
 ###preprocess data###
 #core.info = cisplatin.info[as.character(cisplatin.info$cancer) %in% core.cancer,]
-core.info = cisplatin.info
-core.cancer = c("CESC","LUAD", "BLCA")
+if( calc_cancer == "sin_cancer")
+{
+  core.info = cisplatin.info[as.character(cisplatin.info$cancer)==core.cancer,]
+}
+if( calc_cancer == "pan_cancer")
+{
+  core.info = cisplatin.info
+  #core.cancer = c("CESC","LUAD", "BLCA")
+}
+if( calc_gene == "gene_set" )
+{
+  pre_genes = read.table(gene_set,header=F,sep="\t",quote="")
+  cisplatin.dat = map_rna_gene(cisplatin.dat, pre_genes$V1)
+}
+
+
 
 ##find data##
 if( output_type!="marker"  ) # shuffle/performance
@@ -134,6 +154,13 @@ if( output_type == "marker" )
   train.pats = sample(train.pats,size=length(train.pats),replace=FALSE)
   train.info = core.info
   train.dat = as.matrix(cisplatin.dat[,match(train.pats,colnames(cisplatin.dat))])
+  
+  #refine train and test data
+  
+  
+  
+  
+  
   
   ##filter lowly expressed genes##
   if( filter_low_exp == TRUE )

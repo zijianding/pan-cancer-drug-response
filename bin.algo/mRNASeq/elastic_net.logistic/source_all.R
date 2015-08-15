@@ -12,6 +12,7 @@ source("dummy_to_test.R")
 source("gene_selection.R")
 source("ensemble_roc.R")
 source("parameters.R")
+source("map_rna_gene.R")
 
 
 ###cluster###

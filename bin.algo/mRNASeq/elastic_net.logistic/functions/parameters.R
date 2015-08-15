@@ -1,18 +1,17 @@
 ###parameters###
-#basic parameters for elastic net#
-BS = 100
-alphas = seq(0.1,1,by=0.1)
+#libraries#
+library(glmnet)
+library(doParallel)
+library(foreach)
+no_cores = detectCores()
 
-#minimum number of selected features#
-feature_min = 10
-freq_step = 0.05
-freq = 0.8
 
 #from the *th column in the info file is train/test partition
 info_col = 3
 
-#initialization
-#identify differential genes
+##function parameters initialization##
+
+#identify differential genes#
 find_diff_genes = TRUE
 test_type = "wilcox" # "ttest"/"wilcox"/"regression"
 sig_gene = 50
@@ -23,9 +22,30 @@ q_step=0.05
 p_up = 0.05
 q_up = 0.2
 
+#basic parameters for elastic net#
+BS = 100
+alphas = seq(0.1,1,by=0.1)
+
+#minimum number of selected features#
+feature_min = 10
+freq_step = 0.05
+freq = 0.8
+
+
+#data preprocess#
 filter_low_exp = FALSE
 exp_normalize = FALSE
 add_clinic = FALSE
+
+
+#single cancer#
+
+
+
+#all genes or pre-defined gene set#
+
+
+
 
 
 
