@@ -110,7 +110,7 @@ if( output_type!="marker"  ) # shuffle/performance
   {
     cl = makeCluster(no_cores)
     registerDoParallel(cl)
-    list_tmp = test_gene(train.dat, test.dat, cisplatin.info,parallel=T,
+    list_tmp = test_gene(train.dat, test.dat, train.info,parallel=T,
                          type = test_type,sig_gene = sig_gene,
                          p_thresh=p_thresh,q_thresh=q_thresh,p_step=p_step,
                          q_step=q_step,p_up = p_up,q_up = q_up)
@@ -154,12 +154,6 @@ if( output_type == "marker" )
   train.pats = sample(train.pats,size=length(train.pats),replace=FALSE)
   train.info = core.info
   train.dat = as.matrix(cisplatin.dat[,match(train.pats,colnames(cisplatin.dat))])
-  
-  #refine train and test data
-  
-  
-  
-  
   
   
   ##filter lowly expressed genes##
@@ -342,7 +336,7 @@ if( output_type == "marker" )
   }
   setwd(file.path(output_folder,create_folder))
   #selected features#
-  tmp_str = paste(output_folder,"/marker_molecular_only.txt",sep="")
+  tmp_str = "marker_molecular_only.txt"
   write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
   
 }

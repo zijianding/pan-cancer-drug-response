@@ -3,6 +3,7 @@
 library(glmnet)
 library(doParallel)
 library(foreach)
+library(pracma)
 no_cores = detectCores()
 
 
@@ -82,16 +83,32 @@ if( input_type == "clinical_molecular" )
   find_diff_genes = TRUE
   test_type = "regression" # "ttest"/"wilcox"/"regression"
   sig_gene = 50
-  p_thresh=0.001
+  p_thresh=0.05
   q_thresh=0.05
-  p_step=0.001
+  p_step=0.01
   q_step=0.05
-  p_up = 0.05
+  p_up = 0.1
   q_up = 0.2
   
   filter_low_exp = FALSE
   exp_normalize = FALSE
   add_clinic = TRUE
+}
+if(input_type == "half_clinical_molecular")
+{
+  find_diff_genes = TRUE
+  test_type = "regression" # "ttest"/"wilcox"/"regression"
+  sig_gene = 50
+  p_thresh=0.05
+  q_thresh=0.05
+  p_step=0.01
+  q_step=0.05
+  p_up = 0.1
+  q_up = 0.2
+  
+  filter_low_exp = FALSE
+  exp_normalize = FALSE
+  add_clinic = FALSE
 }
 
 

@@ -1,0 +1,11 @@
+Drug,Gene,Target,Frequency,Effect
+Cisplatin,ARF1,"DNA crosslinking",1,3.168938
+Cisplatin,CLDN3,"DNA crosslinking",1,3.796777
+Cisplatin,GADD45G,"DNA crosslinking",1,2.590859
+Cisplatin,EPB41L4B,"DNA crosslinking",1,3.403547
+Cisplatin,HEATR1,"DNA crosslinking",1,-2.442472
+Cisplatin,FHL3,"DNA crosslinking",1,-3.828705
+Cisplatin,KIF13A,"DNA crosslinking",1,-3.023283
+Cisplatin,C1ORF78,"DNA crosslinking",1,-3.601288
+Cisplatin,THOC1,"DNA crosslinking",1,-2.999767
+Cisplatin,HOXD11,"DNA crosslinking",1,-4.066885
