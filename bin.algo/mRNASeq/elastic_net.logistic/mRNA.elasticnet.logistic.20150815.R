@@ -13,7 +13,7 @@ create_folder = args[4]
 test_fold = as.numeric(as.character(args[5]))#the current test fold, ranging from 1 to 100
 shuffle = as.numeric(as.character(args[6])) #"NULL"/1-100
 
-input_type = args[7]   # molecular_only/clinical_only/clinical_molecular
+input_type = args[7]   # molecular_only/clinical_only/clinical_molecular/***/***
 output_type = args[8]  # "performance" for ROC, "marker" for extract marker, "shuffle" for permutation
 calc_cancer = args[9]  # "sin_cancer"/"pan_cancer"
 calc_gene = args[10]   # "all_gene"/"gene_set"
@@ -30,15 +30,15 @@ source("source_all.R") #function file and parameter file
 # output_folder = "C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic"
 # create_folder = "test"
 # test_fold=1
-# shuffle = 1
+# shuffle = NULL
 # 
 # input_type = "molecular_only" #NOTICE, input_type and output_type must be afront of source
-# output_type = "shuffle"
+# output_type = "performance"
 # calc_cancer = "pan_cancer"
 # calc_gene = "gene_set"
 # 
 # core.cancer = NULL
-# gene_set = "C:/Users/zding/workspace/projects/drug_sensitivity/data/gene_sets/cgp.2012.txt"
+# gene_set = "C:/Users/zding/workspace/projects/drug_sensitivity/data/text_mining/LMMA/cisplatin_gene.pubmed.hugo.20150825.txt"
 # 
 # setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic/")
 # source("source_all.R")
@@ -123,6 +123,9 @@ if( output_type!="marker"  ) # shuffle/performance
     tmp_str = paste("With ",type," and threshold ",thresh,", ",
                     nrow(train.dat)," genes are remained",sep="")
     print(tmp_str)
+    key_param[1,2] = thresh;
+    key_param[2,2] = nrow(train.dat)
+    
   }
   
   
@@ -211,7 +214,7 @@ if( output_type == "marker" )
   
 }
 
-if( input_type == "clinical_only" )
+if( (input_type == "clinical_only") || (input_type=="clinical_pred") )
 {
   #test data
   test.pats = as.character(core.info$patient[as.character(core.info[,test_fold])=="validation"])
@@ -238,112 +241,131 @@ if( input_type == "clinical_only" )
 }
 
 
-
-###estimated robust features###
-#bootstrap samples#
 #train patients response
 train.resp = as.character(train.info$response[match(colnames(train.dat),as.character(train.info$patient))])
-list.bs_mat = bootstrap_sample( colnames(train.dat), train.resp, BS=BS)
-bs_mat.pats = list.bs_mat[[1]]
-bs_mat.resp = list.bs_mat[[2]]
 
-##estimates recurrent features##
-#model training#
-best_lambda = matrix(NA,nrow=length(alphas),ncol=BS)
-best_auc = matrix(NA,nrow=length(alphas),ncol=BS)
-for(i in 1:length(alphas))
+if( input_type != "clinical_pred")
 {
+  ###estimated robust features###
+  #bootstrap samples#
+  list.bs_mat = bootstrap_sample( colnames(train.dat), train.resp, BS=BS)
+  bs_mat.pats = list.bs_mat[[1]]
+  bs_mat.resp = list.bs_mat[[2]]
+  
+  ##estimates recurrent features##
+  #model training#
+  best_lambda = matrix(NA,nrow=length(alphas),ncol=BS)
+  best_auc = matrix(NA,nrow=length(alphas),ncol=BS)
+  for(i in 1:length(alphas))
+  {
+    cl = makeCluster(no_cores)
+    registerDoParallel(cl)
+    train_list <- foreach( bs=1:BS, .packages="glmnet",
+                           .combine='comb', .multicombine=TRUE,
+                           .init=list(list(), list()) ) %dopar%
+    {
+      #bootstrap sample data
+      curr.train_dat = train.dat[ ,match(bs_mat.pats[,bs],colnames(train.dat)) ]
+      curr.train_resp = bs_mat.resp[,bs]
+      
+      #record the best models in each bootstrap sample
+      cv_fit = cv.glmnet( t(curr.train_dat), as.factor(curr.train_resp), 
+                          family="binomial", type.measure="auc" )
+      
+      ix = match(cv_fit$lambda.1se,cv_fit$lambda)
+      #beta = cv_fit$glmnet.fit$beta[,ix]
+      auc = cv_fit$cvm[ix]
+      return( list(cv_fit$lambda.1se,auc) )
+    }
+    stopImplicitCluster()
+    stopCluster(cl)
+    
+    curr_lambda = unlist(train_list[[1]])
+    curr_auc = unlist( train_list[[2]] )
+    
+    best_lambda[i,] = curr_lambda
+    best_auc[i,] = curr_auc
+    
+  }
+    
+    #find best models and corresponding features
   cl = makeCluster(no_cores)
   registerDoParallel(cl)
-  train_list <- foreach( bs=1:BS, .packages="glmnet",
-                         .combine='comb', .multicombine=TRUE,
-                         .init=list(list(), list()) ) %dopar%
+  best_beta <- foreach(bs=1:BS,.combine='cbind',
+                       .packages="glmnet") %dopar%
   {
-    #bootstrap sample data
+    #best model
+    ix = which.max(best_auc[,bs])
+    alpha = alphas[ix]
+    lambda = best_lambda[ix,bs]
+    
+    #bootstrap data
     curr.train_dat = train.dat[ ,match(bs_mat.pats[,bs],colnames(train.dat)) ]
     curr.train_resp = bs_mat.resp[,bs]
     
-    #record the best models in each bootstrap sample
-    cv_fit = cv.glmnet( t(curr.train_dat), as.factor(curr.train_resp), 
-                        family="binomial", type.measure="auc" )
+    #train model
+    glm_fit = glmnet( t(curr.train_dat), as.factor(curr.train_resp), 
+                      family="binomial",alpha=alpha,lambda=lambda)
     
-    ix = match(cv_fit$lambda.1se,cv_fit$lambda)
-    #beta = cv_fit$glmnet.fit$beta[,ix]
-    auc = cv_fit$cvm[ix]
-    return( list(cv_fit$lambda.1se,auc) )
+    curr_beta = as.vector(glm_fit$beta)
+    
+    return(curr_beta)
   }
   stopImplicitCluster()
   stopCluster(cl)
-  
-  curr_lambda = unlist(train_list[[1]])
-  curr_auc = unlist( train_list[[2]] )
-  
-  best_lambda[i,] = curr_lambda
-  best_auc[i,] = curr_auc
-
-}
-
-#find best models and corresponding features
-cl = makeCluster(no_cores)
-registerDoParallel(cl)
-best_beta <- foreach(bs=1:BS,.combine='cbind',
-                     .packages="glmnet") %dopar%
-{
-  #best model
-  ix = which.max(best_auc[,bs])
-  alpha = alphas[ix]
-  lambda = best_lambda[ix,bs]
-  
-  #bootstrap data
-  curr.train_dat = train.dat[ ,match(bs_mat.pats[,bs],colnames(train.dat)) ]
-  curr.train_resp = bs_mat.resp[,bs]
-  
-  #train model
-  glm_fit = glmnet( t(curr.train_dat), as.factor(curr.train_resp), 
-                    family="binomial",alpha=alpha,lambda=lambda)
-  
-  curr_beta = as.vector(glm_fit$beta)
-  
-  return(curr_beta)
-}
-stopImplicitCluster()
-stopCluster(cl)
 
 
-#recurrent features#
-rownames(best_beta) = rownames(train.dat)
-list_features = gene_selection(t(best_beta),freq=freq)
-while( length(list_features[[2]]) <= feature_min )
-{
-  freq = freq - freq_step
+  #recurrent features#
+  rownames(best_beta) = rownames(train.dat)
   list_features = gene_selection(t(best_beta),freq=freq)
+  while( length(list_features[[2]]) <= feature_min )
+  {
+    freq = freq - freq_step
+    list_features = gene_selection(t(best_beta),freq=freq)
+  }
+  tmp_str = paste( "Frequency ",freq," to select",length(list_features[[2]]), "recurrent features" )
+  print(tmp_str)
+  key_param[3,2] = freq
+  key_param[4,2] = length(list_features[[2]])
+  
+  #refine data by recurrent features
+  train.dat = train.dat[list_features[[2]],]
+  test.dat = test.dat[list_features[[2]],]
+  feature_freq = list_features[[3]]
 }
-tmp_str = paste( "Frequency ",freq," to select",length(list_features[[2]]), "recurrent features" )
-print(tmp_str)
-
-#refine data by recurrent features
-train.dat = train.dat[list_features[[2]],]
-test.dat = test.dat[list_features[[2]],]
-feature_freq = list_features[[3]]
 
 
+
+##predict response by ensemble model
 if( output_type == "marker" )
 {
   #create output file folder#
-  if( !dir.exists(file.path(output_folder, create_folder)) )
-  {
-    dir.create( file.path(output_folder, create_folder), showWarnings = FALSE)
-  }
+  dir.create(file.path(output_folder, create_folder), showWarnings = FALSE)
   setwd(file.path(output_folder,create_folder))
+  
   #selected features#
   tmp_str = "marker_molecular_only.txt"
   write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
   
+  #key parameters#
+  tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
+  write.table(key_param,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
 }
 if( output_type != "marker" )
 {
+  if(combine_clinic==TRUE)
+  {
+    tmp_list = cancer_dummy( train.dat, cisplatin.info)
+    train.dat = tmp_list[[1]]
+    dummy = tmp_list[[2]]
+    test.dat = dummy_to_test(test.dat, cisplatin.info, dummy)
+  }
+  
+  
   ##refit models and test##
   #bootstrap samples#
+  #train patients response
+  train.resp = as.character(train.info$response[match(colnames(train.dat),as.character(train.info$patient))])
   list.bs_mat = bootstrap_sample( colnames(train.dat), train.resp, BS=BS)
   bs_mat.pats = list.bs_mat[[1]]
   bs_mat.resp = list.bs_mat[[2]]
@@ -376,6 +398,8 @@ if( output_type != "marker" )
   
 }
   
+
+##output results##
 if( output_type == "shuffle" )
 {
   ###output results###
@@ -403,6 +427,9 @@ if( output_type == "shuffle" )
   tmp_str = paste("pan.elanet.mid_res.test_",test_fold-3,".20150701.txt",sep="")
   write.table(t(test_score),tmp_str,col.names=T,row.names=F,sep="\t",quote=F)
   
+  #key parameters#
+  tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
+  write.table(key_param,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
   
   ##plot TEST performance##
   tmp_str = paste("pan.elanat.test_",test_fold-3,".20150701.tiff",sep="")
@@ -424,22 +451,30 @@ if( output_type == "performance")
   dir.create(file.path(output_folder, create_folder), showWarnings = FALSE)
   setwd(file.path(output_folder,create_folder))
   
-  #feature frequncy#
-  tmp_str = paste("pan.elanet.feature_freq.test_",test_fold-3,".20150701.tiff",sep="")
-  tiff(tmp_str)
-  hist(feature_freq,main="Frequency of hittring for genes",xlab="hitting Freq",ylab="Freq",50)
-  dev.off()
+  
   
   ##final results##
   #selected features#
-  tmp_str = paste("pan.elanet.feature.test_",test_fold-3,".20150701.txt",sep="")
-  write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
-  
+  if(input_type != "clinical_pred")
+  {
+    #feature frequncy#
+    tmp_str = paste("pan.elanet.feature_freq.test_",test_fold-3,".20150701.tiff",sep="")
+    tiff(tmp_str)
+    hist(feature_freq,main="Frequency of hittring for genes",xlab="hitting Freq",ylab="Freq",50)
+    dev.off()
+    
+    tmp_str = paste("pan.elanet.feature.test_",test_fold-3,".20150701.txt",sep="")
+    write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  }
+   
   
   #test by each model#
   tmp_str = paste("pan.elanet.mid_res.test_",test_fold-3,".20150701.txt",sep="")
   write.table(t(test_score),tmp_str,col.names=T,row.names=F,sep="\t",quote=F)
   
+  #key parameters#
+  tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
+  write.table(key_param,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
   
   ##plot TEST performance##
   tmp_str = paste("pan.elanat.test_",test_fold-3,".20150701.tiff",sep="")
