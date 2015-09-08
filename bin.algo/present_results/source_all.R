@@ -1,3 +1,12 @@
+###library###
+library(pracma)
+library(doParallel)
+library(foreach)
+no_cores = detectCores()
+library(pracma)
+library(ggplot2)
+
+#functions
 setwd("functions/")
 source("auc_random.R")
 source("ave_roc.R")
