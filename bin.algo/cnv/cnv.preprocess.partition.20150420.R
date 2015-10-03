@@ -39,7 +39,12 @@ partition_data_ass <- function(obs,info)
 ###load data###
 setwd("C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/cnv")
 pat.info = read.table("cancer.patient.drug.response.gistic2.20150330.txt",header=T,sep="\t",quote="")
-cisplatin.dat = read.table("Cisplatin.gistic2.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
+#cisplatin
+#cisplatin.dat = read.table("Cisplatin.gistic2.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
+#carboplatin
+cisplatin.dat = read.table("Carboplatin.gistic2.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
+#paclitaxel
+#cisplatin.dat = read.table("Paclitaxel.gistic2.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
 
 ###data preprocess###
 #patient information preprocess#
@@ -51,11 +56,11 @@ tmp.arr[which(pat.info$response=="Stable Disease")] = "insensitive"
 tmp.arr[which(pat.info$response=="Complete Response")] = "sensitive"
 tmp.arr[which(pat.info$response=="Partial Response")] = "sensitive"
 pat.info$response = tmp.arr
-cisplatin.info = pat.info[as.character(pat.info$drug)=="Cisplatin",]
+cisplatin.info = pat.info[as.character(pat.info$drug)=="Carboplatin",]
 #data preprocess
-#delete cancers with no more than 5 samples
+#delete cancers with no more than 2 samples
 mytable = table(cisplatin.info$cancer)
-mytable = mytable[mytable<5]
+mytable = mytable[mytable<=2]
 delete_cancer = names(mytable[mytable>0])
 delete_ix = c()
 for(i in 1:length(delete_cancer))
@@ -63,41 +68,94 @@ for(i in 1:length(delete_cancer))
   ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
   delete_ix = c(delete_ix, ix)
 }
-cisplatin.info = cisplatin.info[-delete_ix,]
+if(length(delete_ix)>0){
+  cisplatin.info = cisplatin.info[-delete_ix,]
+  
+  ###find common patients###
+  dat.pats = c()
+  both.ix = c()
+  for(i in 1:ncol(cisplatin.dat))
+  {
+    tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
+    tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
+    if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
+    {
+      #primary.tumor.arr = c(primary.tumor.arr,i)
+      dat.pats = c(dat.pats,tmp.pat)
+      both.ix = c(both.ix,i)
+    }
+    else
+    {
+      print(tmp[[1]][5])
+    }
+  }
+  cisplatin.dat = cisplatin.dat[,both.ix]
+  cis.info.delete.ix = c()
+  for(i in 1:nrow(cisplatin.info))
+  {
+    tmp.pat = as.character(cisplatin.info$patient[i])
+    if( is.na(match(tmp.pat,dat.pats)))
+    {
+      cis.info.delete.ix = c(cis.info.delete.ix,i)
+    }
+  }
+  if(length(cis.info.delete.ix)>0)
+  {
+    cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
+  }
+  
+  
+  #after deleting some samples, any newly "2 sample cancer"?
+  mytable = table(cisplatin.info$cancer)
+  mytable = mytable[mytable<=2]
+  delete_cancer = names(mytable[mytable>0])
+  delete_ix = c()
+  for(i in 1:length(delete_cancer))
+  {
+    ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
+    delete_ix = c(delete_ix, ix)
+  }
+  if(length(delete_ix)>0){
+    cisplatin.info = cisplatin.info[-delete_ix,]
+    
+    ###find common patients###
+    dat.pats = c()
+    both.ix = c()
+    for(i in 1:ncol(cisplatin.dat))
+    {
+      tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
+      tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
+      if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
+      {
+        #primary.tumor.arr = c(primary.tumor.arr,i)
+        dat.pats = c(dat.pats,tmp.pat)
+        both.ix = c(both.ix,i)
+      }
+      else
+      {
+        print(tmp[[1]][5])
+      }
+    }
+    cisplatin.dat = cisplatin.dat[,both.ix]
+    cis.info.delete.ix = c()
+    for(i in 1:nrow(cisplatin.info))
+    {
+      tmp.pat = as.character(cisplatin.info$patient[i])
+      if( is.na(match(tmp.pat,dat.pats)))
+      {
+        cis.info.delete.ix = c(cis.info.delete.ix,i)
+      }
+    }
+    if(length(cis.info.delete.ix)>0)
+    {
+      cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
+    }
+    
+  }
+}
 
 
-###find common patients###
-dat.pats = c()
-both.ix = c()
-for(i in 1:ncol(cisplatin.dat))
-{
-  tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
-  tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
-  if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
-  {
-    #primary.tumor.arr = c(primary.tumor.arr,i)
-    dat.pats = c(dat.pats,tmp.pat)
-    both.ix = c(both.ix,i)
-  }
-  else
-  {
-    print(tmp[[1]][5])
-  }
-}
-cisplatin.dat = cisplatin.dat[,both.ix]
-cis.info.delete.ix = c()
-for(i in 1:nrow(cisplatin.info))
-{
-  tmp.pat = as.character(cisplatin.info$patient[i])
-  if( is.na(match(tmp.pat,dat.pats)))
-  {
-    cis.info.delete.ix = c(cis.info.delete.ix,i)
-  }
-}
-if(length(cis.info.delete.ix)>0)
-{
-  cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
-}
+
 
 
 #delete genes that have zeros in more than 95% samples in each cancer
@@ -125,8 +183,6 @@ for(i in 1:nrow(cisplatin.dat))
 }
 cisplatin.dat = cisplatin.dat[-delete.ix,]
 
-#delete those cancers with less than 5 patients
-
 
 
 ###core cancer###
@@ -146,7 +202,7 @@ coeff = df.all_cancer$Freq/neg_ratio
 df.all_cancer = data.frame(df.all_cancer,neg_ratio,insen_num,coeff)
 colnames(df.all_cancer) = c("cancer","observations","sensitive.ratio","insen_num","coeff")
 df.all_cancer = df.all_cancer[order(df.all_cancer[,5],decreasing=T),]
-#View(df.all_cancer)
+View(df.all_cancer)
 
 
 ####sample test data#####
@@ -228,9 +284,9 @@ partition_res = do.call(cbind,all_res)
 #deal with colnames
 tmp = colnames(cisplatin.dat)
 colnames(cisplatin.dat) = substring(tmp,1,nchar(tmp)-1)
-write.table(cisplatin.dat,"Cisplatin.gistic2.gdac_20141206.preprocess.txt",quote=F,row.names=T,col.names=T,sep="\t")
+write.table(cisplatin.dat,"cisplatin.gistic2_focal.gdac_20141206.preprocess.txt",quote=F,row.names=T,col.names=T,sep="\t")
 
-write.table(partition_res,"cisplatin.gistic2.5_fold_cv.mat.txt",col.names=T,row.names=F,sep="\t",quote=F)
+write.table(partition_res,"cisplatin.gistic2_focal.5_fold_cv.mat.txt",col.names=T,row.names=F,sep="\t",quote=F)
 
 
 

@@ -18,27 +18,29 @@ output_type = args[8]  # "performance" for ROC, "marker" for extract marker, "sh
 calc_cancer = args[9]  # "sin_cancer"/"pan_cancer"
 calc_gene = args[10]   # "all_gene"/"gene_set"
 
-core.cancer = args[11] # "BLCA" etc/NULL
-gene_set = args[12]    # NULL/gene_set
+core.cancer = args[11] # "BLCA" etc/NULL, or train cancer of cross tumor
+test.cancer = args[12] # test cancer of cross tumor
+gene_set = args[13]    # NULL/gene_set/shuffle_gene_set(along with "shuffle")
 
 
 source("source_all.R") #function file and parameter file
 
 #desktop
 # data_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/mRNAseq/cisplatin.mRNAseq.gdac_20141206.preprocess.txt"
-# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/shuffle/shuffle_response.in_cancer/mRNA_seq/cisplatin.mRNAseq_shuffle_info.1.txt"
-# output_folder = "C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic"
+# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/mRNAseq/cisplatin.mRNAseq_fold_cv.mat.txt"
+# output_folder = "C:/Users/zding/workspace/projects/drug_sensitivity/"
 # create_folder = "test"
 # test_fold=1
 # shuffle = NULL
 # 
-# input_type = "molecular_only" #NOTICE, input_type and output_type must be afront of source
+# input_type = "half_clinical_molecular" #NOTICE, input_type and output_type must be afront of source
 # output_type = "performance"
 # calc_cancer = "pan_cancer"
-# calc_gene = "gene_set"
+# calc_gene = "all_gene"
 # 
-# core.cancer = NULL
-# gene_set = "C:/Users/zding/workspace/projects/drug_sensitivity/data/text_mining/LMMA/cisplatin_gene.pubmed.hugo.20150825.txt"
+# core.cancer = "CESC"
+# test.cancer = "BLCA"
+# gene_set = NULL #"C:/Users/zding/workspace/projects/drug_sensitivity/data/text_mining/LMMA/cisplatin_gene.pubmed.hugo.20150825.txt"
 # 
 # setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic/")
 # source("source_all.R")
@@ -55,6 +57,14 @@ test_fold = test_fold + info_col
 
 ###preprocess data###
 #core.info = cisplatin.info[as.character(cisplatin.info$cancer) %in% core.cancer,]
+if( calc_cancer == "cross_cancer")
+{
+  train.cancer = core.cancer
+  core.info.1 = cisplatin.info[as.character(cisplatin.info$cancer)==train.cancer,]
+  core.info.2 = cisplatin.info[as.character(cisplatin.info$cancer)==test.cancer,]
+  core.info = rbind(core.info.1,core.info.2)
+  multi_cancer = F
+}
 if( calc_cancer == "sin_cancer")
 {
   core.info = cisplatin.info[as.character(cisplatin.info$cancer)==core.cancer,]
@@ -67,6 +77,7 @@ if( calc_cancer == "pan_cancer")
 if( calc_gene == "gene_set" )
 {
   pre_genes = read.table(gene_set,header=F,sep="\t",quote="")
+  
   cisplatin.dat = map_rna_gene(cisplatin.dat, pre_genes$V1)
 }
 
@@ -75,17 +86,42 @@ if( calc_gene == "gene_set" )
 ##find data##
 if( output_type!="marker"  ) # shuffle/performance
 {
-  #test data
-  test.pats = as.character(core.info$patient[as.character(core.info[,test_fold])=="validation"])
-  test.info = core.info[as.character(core.info[,test_fold])=="validation",]
-  test.dat = as.matrix(cisplatin.dat[,match(test.pats,colnames(cisplatin.dat))])
-  test.resp = as.character(test.info$response[match(test.pats,as.character(test.info$patient))])
+  if(calc_cancer=="cross_cancer"){
+    #test data
+    test.pats = as.character(core.info$patient[as.character(core.info$cancer)==test.cancer])
+    test.info = core.info[as.character(core.info$cancer)==test.cancer,]
+    test.dat = as.matrix(cisplatin.dat[,match(test.pats,colnames(cisplatin.dat))])
+    test.resp = as.character(test.info$response[match(test.pats,as.character(test.info$patient))])
+    
+    #train data
+    train.pats = as.character(core.info$patient[as.character(core.info$cancer)==train.cancer])
+    train.pats = sample(train.pats,size=length(train.pats),replace=FALSE)
+    train.info = core.info[as.character(core.info$cancer)==train.cancer,]
+    train.dat = as.matrix(cisplatin.dat[,match(train.pats,colnames(cisplatin.dat))])
+    
+    if(output_type == "shuffle") #cross tumor permutation
+    {
+      #core.info.1; core.info; train.info
+      random.resp = sample(as.character(core.info.1$response),replace=F)
+      core.info.1$response = random.resp
+      core.info = rbind(core.info.1, core.info.2)
+      train.info = core.info.1
+    }
+  }else{
+    #test data
+    test.pats = as.character(core.info$patient[as.character(core.info[,test_fold])=="validation"])
+    test.info = core.info[as.character(core.info[,test_fold])=="validation",]
+    test.dat = as.matrix(cisplatin.dat[,match(test.pats,colnames(cisplatin.dat))])
+    test.resp = as.character(test.info$response[match(test.pats,as.character(test.info$patient))])
+    
+    #train data
+    train.pats = as.character(core.info$patient[as.character(core.info[,test_fold])=="train"])
+    train.pats = sample(train.pats,size=length(train.pats),replace=FALSE)
+    train.info = core.info[as.character(core.info[,test_fold])=="train",]
+    train.dat = as.matrix(cisplatin.dat[,match(train.pats,colnames(cisplatin.dat))])
+  }
   
-  #train data
-  train.pats = as.character(core.info$patient[as.character(core.info[,test_fold])=="train"])
-  train.pats = sample(train.pats,size=length(train.pats),replace=FALSE)
-  train.info = core.info[as.character(core.info[,test_fold])=="train",]
-  train.dat = as.matrix(cisplatin.dat[,match(train.pats,colnames(cisplatin.dat))])
+  
   
   ##filter lowly expressed genes##
   if( filter_low_exp == TRUE )
@@ -113,7 +149,7 @@ if( output_type!="marker"  ) # shuffle/performance
     list_tmp = test_gene(train.dat, test.dat, train.info,parallel=T,
                          type = test_type,sig_gene = sig_gene,
                          p_thresh=p_thresh,q_thresh=q_thresh,p_step=p_step,
-                         q_step=q_step,p_up = p_up,q_up = q_up)
+                         q_step=q_step,p_up = p_up,q_up = q_up, multi_cancer=multi_cancer)
     stopImplicitCluster()
     stopCluster(cl)
     train.dat = list_tmp[[1]]
@@ -185,7 +221,7 @@ if( output_type == "marker" )
     list_tmp = test_gene(train.dat, test.dat, cisplatin.info,parallel=T,
                          type = test_type,sig_gene = sig_gene,
                          p_thresh=p_thresh,q_thresh=q_thresh,p_step=p_step,
-                         q_step=q_step,p_up = p_up,q_up = q_up)
+                         q_step=q_step,p_up = p_up,q_up = q_up, multi_cancer=multi_cancer)
     stopImplicitCluster()
     stopCluster(cl)
     train.dat = list_tmp[[1]]
@@ -241,7 +277,7 @@ if( (input_type == "clinical_only") || (input_type=="clinical_pred") )
 }
 
 
-#train patients response
+##train patients response##
 train.resp = as.character(train.info$response[match(colnames(train.dat),as.character(train.info$patient))])
 
 if( input_type != "clinical_pred")
@@ -288,7 +324,7 @@ if( input_type != "clinical_pred")
     
   }
     
-    #find best models and corresponding features
+  #find best models and corresponding features
   cl = makeCluster(no_cores)
   registerDoParallel(cl)
   best_beta <- foreach(bs=1:BS,.combine='cbind',
@@ -316,27 +352,48 @@ if( input_type != "clinical_pred")
 
 
   #recurrent features#
-  rownames(best_beta) = rownames(train.dat)
-  list_features = gene_selection(t(best_beta),freq=freq)
-  while( length(list_features[[2]]) <= feature_min )
+  if( select_gene == "by_freq")
   {
-    freq = freq - freq_step
+    rownames(best_beta) = rownames(train.dat)
     list_features = gene_selection(t(best_beta),freq=freq)
+    while( length(list_features[[2]]) < feature_min )
+    {
+      freq = freq - freq_step
+      list_features = gene_selection(t(best_beta),freq=freq)
+    }
+    tmp_str = paste( "Frequency ",freq," to select",length(list_features[[2]]), "recurrent features" )
+    print(tmp_str)
+    key_param[3,2] = freq
+    key_param[4,2] = length(list_features[[2]])
+    
+    #refine data by recurrent features
+    train.dat = train.dat[list_features[[2]],]
+    test.dat = test.dat[list_features[[2]],]
+    feature_freq = list_features[[3]]
   }
-  tmp_str = paste( "Frequency ",freq," to select",length(list_features[[2]]), "recurrent features" )
-  print(tmp_str)
-  key_param[3,2] = freq
-  key_param[4,2] = length(list_features[[2]])
-  
-  #refine data by recurrent features
-  train.dat = train.dat[list_features[[2]],]
-  test.dat = test.dat[list_features[[2]],]
-  feature_freq = list_features[[3]]
+  if( select_gene == "freqNweight")
+  {
+    rownames(best_beta) = rownames(train.dat)
+    list_features = gene_selection_sd(best_beta,sd=sd)
+    while( length(list_features[[2]]) < feature_min )
+    {
+      sd = sd - sd_step
+      list_features = gene_selection_sd(best_beta,sd=sd)
+    }
+    tmp_str = paste("Sd",sd,"to select",length(list_features[[2]]),"recurrent features",sep=" ")
+    print(tmp_str)
+    key_param[3,2] = length(list_features[[2]])
+    
+    #refine data by recurrent features
+    train.dat = train.dat[list_features[[2]],]
+    test.dat = test.dat[list_features[[2]],]
+    feature_freq = list_features[[3]]
+  }
 }
 
 
 
-##predict response by ensemble model
+##predict response by ensemble model##
 if( output_type == "marker" )
 {
   #create output file folder#
@@ -345,7 +402,12 @@ if( output_type == "marker" )
   
   #selected features#
   tmp_str = "marker_molecular_only.txt"
-  write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  #write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  if(select_gene == "freqNweight"){
+    write.table(feature_freq,tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  }else{
+    write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  }
   
   #key parameters#
   tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
@@ -420,7 +482,12 @@ if( output_type == "shuffle" )
   ##final results##
   #selected features#
   tmp_str = paste("pan.elanet.feature.test_",test_fold-3,".20150701.txt",sep="")
-  write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  if(select_gene == "freqNweight"){
+    write.table(feature_freq,tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  }else{
+    write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+  }
+  
   
   
   #test by each model#
@@ -464,7 +531,12 @@ if( output_type == "performance")
     dev.off()
     
     tmp_str = paste("pan.elanet.feature.test_",test_fold-3,".20150701.txt",sep="")
-    write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+    #write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+    if(select_gene == "freqNweight"){
+      write.table(feature_freq,tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+    }else{
+      write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
+    }
   }
    
   

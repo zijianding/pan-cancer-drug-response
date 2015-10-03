@@ -104,6 +104,8 @@ ave_roc <- function(data, type="vertical",title_str,measure="quantile")
     
     tpr_quantile = t( apply(fpr_fix.mat,1,quantile) )
     
+    #AUC
+    auc = trapz(fpr_fix,tpr_fix)
     
     #draw the average curve
     if( measure=="sd")
@@ -121,7 +123,7 @@ ave_roc <- function(data, type="vertical",title_str,measure="quantile")
                fpr_fix[fpr_fix.sd_ix]+epsilon,tpr_fix[fpr_fix.sd_ix]-tpr_fix.sd)
       segments(fpr_fix[fpr_fix.sd_ix]-epsilon,tpr_fix[fpr_fix.sd_ix]+tpr_fix.sd,
                fpr_fix[fpr_fix.sd_ix]+epsilon,tpr_fix[fpr_fix.sd_ix]+tpr_fix.sd)
-      return( list(cbind(tpr_fix,fpr_fix),cbind(fpr_fix.sd_ix,tpr_fix.sd)) )
+      return( list(cbind(tpr_fix,fpr_fix),cbind(fpr_fix.sd_ix,tpr_fix.sd),auc) )
     }
     
     if(measure=="quantile")
@@ -147,7 +149,7 @@ ave_roc <- function(data, type="vertical",title_str,measure="quantile")
                fpr_fix[fpr_fix.sd_ix]+epsilon,
                tpr_quantile[fpr_fix.sd_ix,4])
       
-      return( list(cbind(tpr_quantile[,3],fpr_fix),cbind(fpr_fix.sd_ix,tpr_quantile[,c(2,4)])) )
+      return( list(cbind(tpr_quantile[,3],fpr_fix),cbind(fpr_fix.sd_ix,tpr_quantile[,c(2,4)]),auc) )
       
       
     }
@@ -175,6 +177,9 @@ ave_roc <- function(data, type="vertical",title_str,measure="quantile")
     st = floor(lg/10)
     sd_ix = seq(st,lg,by=st)
     
+    #AUC
+    auc = trapz(fpr_mean,tpr_mean)
+    
     #draw average ROC curve
     plot(fpr_mean,tpr_mean,"l",
          xlim=c(0,1),ylim=c(0,1),
@@ -199,7 +204,7 @@ ave_roc <- function(data, type="vertical",title_str,measure="quantile")
     segments(fpr_mean[sd_ix]+fpr_sd[sd_ix],tpr_mean[sd_ix]-epsilon,
              fpr_mean[sd_ix]+fpr_sd[sd_ix],tpr_mean[sd_ix]+epsilon)
     
-    return(list(cbind(tpr_mean,fpr_mean),cbind(tpr_sd,fpr_sd)))
+    return(list(cbind(tpr_mean,fpr_mean),cbind(tpr_sd,fpr_sd),auc))
   }
   
   

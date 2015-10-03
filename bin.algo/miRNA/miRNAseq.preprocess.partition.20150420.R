@@ -42,7 +42,12 @@ partition_data_ass <- function(obs,info)
 #desktop
 setwd("C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/miRNAseq/")
 pat.info = read.table("cancer.patient.drug.response.miRNAseq.20150519.txt",header=T,sep="\t",quote="")
-cisplatin.dat = read.table("Cisplatin.miRNAseq.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
+#cisplatin data
+# cisplatin.dat = read.table("Cisplatin.miRNAseq.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
+#carboplatin data
+cisplatin.dat = read.table("Carboplatin.miRNAseq.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
+#paclitaxel data
+#cisplatin.dat = read.table("Paclitaxel.miRNAseq.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1)
 
 ###data preprocess###
 #patient information preprocess#
@@ -54,7 +59,7 @@ tmp.arr[which(pat.info$response=="Stable Disease")] = "insensitive"
 tmp.arr[which(pat.info$response=="Complete Response")] = "sensitive"
 tmp.arr[which(pat.info$response=="Partial Response")] = "sensitive"
 pat.info$response = tmp.arr
-cisplatin.info = pat.info[as.character(pat.info$drug)=="Cisplatin",]
+cisplatin.info = pat.info[as.character(pat.info$drug)=="Carboplatin",]
 
 #delete cancers with no more than 2 samples
 mytable = table(cisplatin.info$cancer)
@@ -66,85 +71,93 @@ for(i in 1:length(delete_cancer))
   ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
   delete_ix = c(delete_ix, ix)
 }
-cisplatin.info = cisplatin.info[-delete_ix,]
+if( length(delete_ix)>0){
+  cisplatin.info = cisplatin.info[-delete_ix,]
+  
+  ##calibration data and patient information
+  dat.pats = c()
+  both.ix = c()
+  for(i in 1:ncol(cisplatin.dat))
+  {
+    tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
+    tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
+    if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
+    {
+      #primary.tumor.arr = c(primary.tumor.arr,i)
+      dat.pats = c(dat.pats,tmp.pat)
+      both.ix = c(both.ix,i)
+    }
+    else
+    {
+      print(tmp)
+      print(i)
+    }
+  }
+  cisplatin.dat = cisplatin.dat[,both.ix]
+  cis.info.delete.ix = c()
+  for(i in 1:nrow(cisplatin.info))
+  {
+    tmp.pat = as.character(cisplatin.info$patient[i])
+    if( is.na(match(tmp.pat,dat.pats)))
+    {
+      cis.info.delete.ix = c(cis.info.delete.ix,i)
+    }
+  }
+  if(length(cis.info.delete.ix)>0)
+  {
+    cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
+  }
+  #again, delete cancer types that have no more than 2 samples
+  mytable = table(cisplatin.info$cancer)
+  mytable = mytable[mytable<=2]
+  delete_cancer = names(mytable[mytable>0])
+  delete_ix = c()
+  for(i in 1:length(delete_cancer))
+  {
+    ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
+    delete_ix = c(delete_ix, ix)
+  }
+  if( length(delete_ix)>0 ){
+    cisplatin.info = cisplatin.info[-delete_ix,]
+    #again, calibration the info and the data
+    dat.pats = c()
+    both.ix = c()
+    for(i in 1:ncol(cisplatin.dat))
+    {
+      tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
+      tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
+      if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
+      {
+        #primary.tumor.arr = c(primary.tumor.arr,i)
+        dat.pats = c(dat.pats,tmp.pat)
+        both.ix = c(both.ix,i)
+      }
+      else
+      {
+        print(tmp)
+      }
+    }
+    cisplatin.dat = cisplatin.dat[,both.ix]
+    cis.info.delete.ix = c()
+    for(i in 1:nrow(cisplatin.info))
+    {
+      tmp.pat = as.character(cisplatin.info$patient[i])
+      if( is.na(match(tmp.pat,dat.pats)))
+      {
+        cis.info.delete.ix = c(cis.info.delete.ix,i)
+      }
+    }
+    if(length(cis.info.delete.ix)>0)
+    {
+      cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
+    }
+    
+  } 
+  
+}
 
 
-##calibration data and patient information
-dat.pats = c()
-both.ix = c()
-for(i in 1:ncol(cisplatin.dat))
-{
-  tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
-  tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
-  if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
-  {
-    #primary.tumor.arr = c(primary.tumor.arr,i)
-    dat.pats = c(dat.pats,tmp.pat)
-    both.ix = c(both.ix,i)
-  }
-  else
-  {
-    print(tmp)
-    print(i)
-  }
-}
-cisplatin.dat = cisplatin.dat[,both.ix]
-cis.info.delete.ix = c()
-for(i in 1:nrow(cisplatin.info))
-{
-  tmp.pat = as.character(cisplatin.info$patient[i])
-  if( is.na(match(tmp.pat,dat.pats)))
-  {
-    cis.info.delete.ix = c(cis.info.delete.ix,i)
-  }
-}
-if(length(cis.info.delete.ix)>0)
-{
-  cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
-}
-#again, delete cancer types that have no more than 2 samples
-mytable = table(cisplatin.info$cancer)
-mytable = mytable[mytable<=2]
-delete_cancer = names(mytable[mytable>0])
-delete_ix = c()
-for(i in 1:length(delete_cancer))
-{
-  ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
-  delete_ix = c(delete_ix, ix)
-}
-cisplatin.info = cisplatin.info[-delete_ix,]
-#again, calibration the info and the data
-dat.pats = c()
-both.ix = c()
-for(i in 1:ncol(cisplatin.dat))
-{
-  tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
-  tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
-  if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
-  {
-    #primary.tumor.arr = c(primary.tumor.arr,i)
-    dat.pats = c(dat.pats,tmp.pat)
-    both.ix = c(both.ix,i)
-  }
-  else
-  {
-    print(tmp)
-  }
-}
-cisplatin.dat = cisplatin.dat[,both.ix]
-cis.info.delete.ix = c()
-for(i in 1:nrow(cisplatin.info))
-{
-  tmp.pat = as.character(cisplatin.info$patient[i])
-  if( is.na(match(tmp.pat,dat.pats)))
-  {
-    cis.info.delete.ix = c(cis.info.delete.ix,i)
-  }
-}
-if(length(cis.info.delete.ix)>0)
-{
-  cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
-}
+
 
 #delete genes that have NAs in more than 10% samples in each cancer
 #actually delete lowly expressed genes
@@ -256,7 +269,7 @@ coeff = df.all_cancer$Freq/neg_ratio
 df.all_cancer = data.frame(df.all_cancer,neg_ratio,insen_num,coeff)
 colnames(df.all_cancer) = c("cancer","observations","sensitive.ratio","insen_num","coeff")
 df.all_cancer = df.all_cancer[order(df.all_cancer[,5],decreasing=T),]
-#View(df.all_cancer)
+View(df.all_cancer)
 core.cancer = c("CESC","LUAD", "BLCA")
 
 ####partition data into 10-fold#####
@@ -325,7 +338,7 @@ partition_res = do.call(cbind,all_res)
 
 
 ###output
-write.table(cisplatin.dat,"cisplatin.miRNAseq.gdac_20141206.preprocess.txt",quote=F,row.names=T,col.names=T,sep="\t")
+write.table(cisplatin.dat,"paclitaxel.miRNAseq.gdac_20141206.preprocess.txt",quote=F,row.names=T,col.names=T,sep="\t")
 
-write.table(partition_res,"cisplatin.miRNAseq_fold_cv.mat.txt",col.names=T,row.names=F,sep="\t",quote=F)
+write.table(partition_res,"paclitaxel.miRNAseq_fold_cv.mat.txt",col.names=T,row.names=F,sep="\t",quote=F)
 

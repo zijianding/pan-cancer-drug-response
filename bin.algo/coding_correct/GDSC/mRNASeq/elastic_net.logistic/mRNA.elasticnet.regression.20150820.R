@@ -33,7 +33,7 @@ source("source_all.R") #function file and parameter file
 # shuffle = 1
 # 
 # input_type = "clinical_molecular" #NOTICE, input_type and output_type must be afront of source
-# output_type = "performance"
+# output_type = "marker"
 # calc_cancer = "pan_cancer"
 # calc_gene = "all_gene"
 # 
@@ -253,7 +253,7 @@ bs_mat.resp = list.bs_mat[[2]]
 ##estimates recurrent features##
 #model training#
 best_lambda = matrix(NA,nrow=length(alphas),ncol=BS)
-best_auc = matrix(NA,nrow=length(alphas),ncol=BS)
+best_dev = matrix(NA,nrow=length(alphas),ncol=BS)
 for(i in 1:length(alphas))
 {
   cl = makeCluster(no_cores)
@@ -267,22 +267,22 @@ for(i in 1:length(alphas))
     curr.train_resp = bs_mat.resp[,bs]
     
     #record the best models in each bootstrap sample
-    cv_fit = cv.glmnet( t(curr.train_dat), curr.train_resp, 
+    cv_fit = cv.glmnet( t(curr.train_dat), as.numeric(curr.train_resp), 
                         family="gaussian", type.measure="deviance" )
     
     ix = match(cv_fit$lambda.1se,cv_fit$lambda)
     #beta = cv_fit$glmnet.fit$beta[,ix]
-    auc = cv_fit$cvm[ix]
-    return( list(cv_fit$lambda.1se,auc) )
+    dev = cv_fit$cvm[ix]
+    return( list(cv_fit$lambda.1se,dev) )
   }
   stopImplicitCluster()
   stopCluster(cl)
   
   curr_lambda = unlist(train_list[[1]])
-  curr_auc = unlist( train_list[[2]] )
+  curr_dev = unlist( train_list[[2]] )
   
   best_lambda[i,] = curr_lambda
-  best_auc[i,] = curr_auc
+  best_dev[i,] = curr_dev
 
 }
 
@@ -293,7 +293,7 @@ best_beta <- foreach(bs=1:BS,.combine='cbind',
                      .packages="glmnet") %dopar%
 {
   #best model
-  ix = which.max(best_auc[,bs])
+  ix = which.min(best_dev[,bs])
   alpha = alphas[ix]
   lambda = best_lambda[ix,bs]
   
@@ -302,8 +302,8 @@ best_beta <- foreach(bs=1:BS,.combine='cbind',
   curr.train_resp = bs_mat.resp[,bs]
   
   #train model
-  glm_fit = glmnet( t(curr.train_dat), as.factor(curr.train_resp), 
-                    family="binomial",alpha=alpha,lambda=lambda)
+  glm_fit = glmnet( t(curr.train_dat), as.numeric(curr.train_resp), 
+                    family="gaussian",alpha=alpha,lambda=lambda)
   
   curr_beta = as.vector(glm_fit$beta)
   
@@ -333,13 +333,10 @@ feature_freq = list_features[[3]]
 if( output_type == "marker" )
 {
   #create output file folder#
-  if( !dir.exists(file.path(output_folder, create_folder)) )
-  {
-    dir.create( file.path(output_folder, create_folder), showWarnings = FALSE)
-  }
+  dir.create( file.path(output_folder, create_folder), showWarnings = FALSE)
   setwd(file.path(output_folder,create_folder))
   #selected features#
-  tmp_str = paste(output_folder,"/marker_molecular_only.txt",sep="")
+  tmp_str = "marker_molecular_only.txt"
   write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
   
 }
@@ -365,7 +362,7 @@ if( output_type != "marker" )
                      lambda=0, family="binomial")
     
     #predict on test data
-    pred = predict( object=glm_fit,newx=t(test.dat), type="response" )
+    pred = predict( object=glm_fit,newx=t(test.dat), type="gaussian" )
     
     return(as.vector(pred))
     

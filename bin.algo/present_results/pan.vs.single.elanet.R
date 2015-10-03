@@ -1,53 +1,39 @@
 ###library###
 library(doParallel)
 library(foreach)
+library(pracma)
 no_cores = detectCores()
 ###functions###
-read_table <- function(x)
-{
-  return( read.table(x,sep="\t",header=T,quote="") )
-}
-
-find_name <- function(x)
-{
-  arr = unlist(strsplit(x,split="\\/",perl=T))
-  return(arr[length(arr)])
-}
 
 
-identify_class <- function(score_mat,class,target_class,cutoff=0.5)
-{
-  #score_mat: column as patients
-  #target class: probability larger than 0.5
-  mat = matrix( 0,nrow=nrow(score_mat),ncol=ncol(score_mat) )
-  mat[score_mat>=cutoff] = 1
-  vec = colMeans(mat)
-  
-  class_1 = target_class
-  class_2 = setdiff(unique(class),class_1)
-  
-  pred = vector(length=length(vec),mode="character")
-  pred[vec>=0.5] = class_1
-  pred[vec< 0.5] = class_2
-  
-  indict = pred==class
-  
-  df = data.frame(class,pred,indict)
-  colnames(df) = c("true","pred","indicator")
-  rownames(df) = colnames(score_mat)
-  
-  mytable = table(pred,class)
-  fdr = mytable[1,2]/sum(mytable[1,])
-  
-  #return(list(df,fdr))
-  return(df)
-  
-}
+###load data###
+##path##
+#laptop#
+# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/miRNAseq/cisplatin.miRNAseq_fold_cv.mat.txt"
+# 
+# pan_path = "C:/Users/zding/workspace/projects/drug_sensitivity/results/cisplatin/miRNA/elastic_net/wilcox.no_cancer/performance/whole_genome.0.05/"
+# sin_path = "C:/Users/zding/workspace/projects/drug_sensitivity/results/cisplatin/miRNA/elastic_net/wilcox.no_cancer/performance/cesc.whole_genome.0.05/"
+# 
+# core.cancer = "CESC"
+# pdf_file = "tmp.pdf"
+# drug = "cisplatin"
+# data_type = "miRNA"
+#cluster#
+args <- commandArgs(trailingOnly=TRUE)
+info_file = args[1]
 
-#for debug
-# data = error_res
-# info = cisplatin.info
-#
+pan_path = args[2]
+sin_path = args[3]
+
+core.cancer = args[4]
+pdf_file = args[5]
+drug = "cisplatin"
+data_type = args[6]
+pan_pattern = "pan.elanet.mid_res.test_[0-9]*.20150701.txt"
+single_pattern = pan_pattern
+source("source_all.R")
+
+##specific functions##
 error_calc <- function(data, info,core.cancer)
 {
   #data as a list of matrice
@@ -142,354 +128,6 @@ error_calc <- function(data, info,core.cancer)
   
 }
 
-
-ave_roc <- function(data, type="vertical",title_str,measure="quantile")
-{
-  #data as a list of matrice
-  #each matrix: tpr/fpr
-  #return: an average curve with error bar(sd)
-  #for debug
-  #       data = roc_res
-  #       type= "vertical"
-  #       measure = "quantile"
-  #       title_str = "test"
-  #now measure should be used along with quantila
-  #threshold is currently not be used along with quantile
-  
-  
-  library(pracma)
-  data_num = length(data)
-  
-  #by vertical
-  if( type=="vertical" )
-  {
-    #fpr points
-    fpr_fix = seq(0,1,by=0.01)
-    fpr_fix.sd_ix = seq(11,91,by=10)
-    #tpr points
-    tpr_fix = vector(length=length(fpr_fix),
-                     mode="numeric")
-    tpr_fix.sd = vector(mode="numeric",
-                        length=length(fpr_fix.sd_ix))
-    
-    #calculate fpr
-    fpr_fix.mat = matrix(NA,nrow=length(fpr_fix),
-                         ncol=data_num)
-    for( i in 1:data_num )
-    {
-      for( j in 2:(length(fpr_fix)-1) )
-      {
-        ix = which(data[[i]][,2]==fpr_fix[j])
-        if( length(ix)>0 )
-        {
-          fpr_fix.mat[j,i] = max(data[[i]][ix,1])
-        }
-        if( length(ix)==0)
-        {
-          val = abs( data[[i]][,2]-fpr_fix[j] )
-          ix = which( val == min(val) )
-          curr_val = unique(data[[i]][ix,2])
-          if( length(curr_val)>1)
-          {
-            x1 = data[[i]][max(which(data[[i]][,2]==curr_val[1])),2]
-            y1 = data[[i]][max(which(data[[i]][,2]==curr_val[1])),1]
-            x2 = data[[i]][min(which(data[[i]][,2]==curr_val[2])),2]
-            y2 = data[[i]][min(which(data[[i]][,2]==curr_val[2])),1]
-            y = (y2-y1)/(x2-x1)*fpr_fix[j]
-            y = y + y2 - (y2-y1)/(x2-x1)*x2
-            fpr_fix.mat[j,i] = y
-            
-          }
-          if( length(curr_val)==1)
-          {
-            if(curr_val<fpr_fix[j])
-            {
-              if( length(ix) > 1)
-              {
-                ix = max(ix)
-              }
-              y1 = data[[i]][ix,1]
-              x1 = data[[i]][ix,2]
-              y2 = data[[i]][ix+1,1]
-              x2 = data[[i]][ix+1,2]
-              y = (y2-y1)/(x2-x1)*fpr_fix[j]
-              y = y + y2 - (y2-y1)/(x2-x1)*x2
-              fpr_fix.mat[j,i] = y
-            }
-            if( curr_val>fpr_fix[j] )
-            {
-              if( length(ix) > 1)
-              {
-                ix = min(ix)
-              }
-              y1 = data[[i]][ix-1,1]
-              x1 = data[[i]][ix-1,2]
-              y2 = data[[i]][ix,1]
-              x2 = data[[i]][ix,2]
-              y = (y2-y1)/(x2-x1)*fpr_fix[j]
-              y = y + y2 - (y2-y1)/(x2-x1)*x2
-              fpr_fix.mat[j,i] = y
-            }
-          }
-          
-          
-          
-        }
-      }
-      
-    }
-    fpr_fix.mat[1,] = 0
-    fpr_fix.mat[nrow(fpr_fix.mat),] = 1
-    
-    tpr_fix = rowMeans( fpr_fix.mat )
-    for( i in 1:length(fpr_fix.sd_ix) )
-    {
-      tpr_fix.sd[i] = sd(fpr_fix.mat[fpr_fix.sd_ix[i],])
-    }
-    
-    tpr_quantile = t( apply(fpr_fix.mat,1,quantile) )
-    
-    
-    #draw the average curve
-    if( measure=="sd")
-    {
-      plot(fpr_fix, tpr_fix, "l",
-           xlim=c(0,1), ylim=c(0,1),
-           xlab="False Positive Rate",
-           ylab="True Positive Rage",
-           main=title_str)
-      lines(seq(0,1,0.1),seq(0,1,0.1),lty=2,col="gray")
-      segments(fpr_fix[fpr_fix.sd_ix],tpr_fix[fpr_fix.sd_ix]-tpr_fix.sd,
-               fpr_fix[fpr_fix.sd_ix],tpr_fix[fpr_fix.sd_ix]+tpr_fix.sd)
-      epsilon = 0.01
-      segments(fpr_fix[fpr_fix.sd_ix]-epsilon,tpr_fix[fpr_fix.sd_ix]-tpr_fix.sd,
-               fpr_fix[fpr_fix.sd_ix]+epsilon,tpr_fix[fpr_fix.sd_ix]-tpr_fix.sd)
-      segments(fpr_fix[fpr_fix.sd_ix]-epsilon,tpr_fix[fpr_fix.sd_ix]+tpr_fix.sd,
-               fpr_fix[fpr_fix.sd_ix]+epsilon,tpr_fix[fpr_fix.sd_ix]+tpr_fix.sd)
-      return( list(cbind(tpr_fix,fpr_fix),cbind(fpr_fix.sd_ix,tpr_fix.sd)) )
-    }
-    
-    if(measure=="quantile")
-    {
-      plot(fpr_fix,tpr_quantile[,3],"l",
-           xlim=c(0,1),ylim=c(0,1),
-           xlab="False Positive Rate",
-           ylab="True Positive Rage",
-           main=title_str)
-      lines(seq(0,1,0.1),seq(0,1,0.1),lty=2,col="gray")
-      
-      segments(fpr_fix[fpr_fix.sd_ix],
-               tpr_quantile[fpr_fix.sd_ix,2],
-               fpr_fix[fpr_fix.sd_ix],
-               tpr_quantile[fpr_fix.sd_ix,4])
-      epsilon = 0.01
-      segments(fpr_fix[fpr_fix.sd_ix]-epsilon,
-               tpr_quantile[fpr_fix.sd_ix,2],
-               fpr_fix[fpr_fix.sd_ix]+epsilon,
-               tpr_quantile[fpr_fix.sd_ix,2])
-      segments(fpr_fix[fpr_fix.sd_ix]-epsilon,
-               tpr_quantile[fpr_fix.sd_ix,4],
-               fpr_fix[fpr_fix.sd_ix]+epsilon,
-               tpr_quantile[fpr_fix.sd_ix,4])
-      
-      return( list(cbind(tpr_quantile[,3],fpr_fix),cbind(fpr_fix.sd_ix,tpr_quantile[,c(2,4)])) )
-      
-      
-    }
-    
-    
-  }
-  
-  
-  
-  #by threshold
-  if( type=="threshold" )
-  {
-    tpr_list = lapply( data,function(x){return(x[,1])} )
-    tpr_mat = do.call(cbind,tpr_list)
-    tpr_mean = rowMeans(tpr_mat)
-    tpr_sd = apply(tpr_mat,1,sd)
-    
-    
-    fpr_list = lapply(data,function(x){return(x[,2])} )
-    fpr_mat = do.call(cbind,fpr_list)
-    fpr_mean = rowMeans(fpr_mat)
-    fpr_sd = apply(fpr_mat,1,sd)
-    
-    lg = length(tpr_sd)
-    st = floor(lg/10)
-    sd_ix = seq(st,lg,by=st)
-    
-    #draw average ROC curve
-    plot(fpr_mean,tpr_mean,"l",
-         xlim=c(0,1),ylim=c(0,1),
-         xlab="False Postive Rate",
-         ylab="True Positive Rate",
-         main=title_str)
-    lines(seq(0,1,0.1),seq(0,1,0.1),lty=2,col="gray")
-    
-    #vertical sd error bar
-    segments(fpr_mean[sd_ix],tpr_mean[sd_ix]-tpr_sd[sd_ix],
-             fpr_mean[sd_ix],tpr_mean[sd_ix]+tpr_sd[sd_ix])
-    epsilon = 0.01
-    segments(fpr_mean[sd_ix]-epsilon,tpr_mean[sd_ix]-tpr_sd[sd_ix],
-             fpr_mean[sd_ix]+epsilon,tpr_mean[sd_ix]-tpr_sd[sd_ix])
-    segments(fpr_mean[sd_ix]-epsilon,tpr_mean[sd_ix]+tpr_sd[sd_ix],
-             fpr_mean[sd_ix]+epsilon,tpr_mean[sd_ix]+tpr_sd[sd_ix])
-    #horiZontal sd error bar
-    segments(fpr_mean[sd_ix]-fpr_sd[sd_ix],tpr_mean[sd_ix],
-             fpr_mean[sd_ix]+fpr_sd[sd_ix],tpr_mean[sd_ix])
-    segments(fpr_mean[sd_ix]-fpr_sd[sd_ix],tpr_mean[sd_ix]-epsilon,
-             fpr_mean[sd_ix]-fpr_sd[sd_ix],tpr_mean[sd_ix]+epsilon)
-    segments(fpr_mean[sd_ix]+fpr_sd[sd_ix],tpr_mean[sd_ix]-epsilon,
-             fpr_mean[sd_ix]+fpr_sd[sd_ix],tpr_mean[sd_ix]+epsilon)
-    
-    return(list(cbind(tpr_mean,fpr_mean),cbind(tpr_sd,fpr_sd)))
-  }
-  
-  
-  
-  
-}
-
-
-ensemble_roc <- function(score_mat,class,target_class,step=0.0001)
-{
-  #score_mat: row as one model, column as patients
-  #class: responses
-  #return value: tpr and fpr under each cut
-  #cut: seq(0,1,by=0.01)
-  #currently target class is treated as negative classs
-  #which is wrong, later we will corrected this
-  # for debug
-  #     score_mat = t(test_score)
-  #     class = test.resp
-  #     target_class = "sensitive"
-  #     step=0.0001
-  
-  #
-  
-  
-  #here is the problem
-  class_1 = target_class # large score
-  class_2 = setdiff( unique(class), target_class )
-  class_p = class_2 #small score
-  class_n = class_1 #large score
-  
-  
-  
-  cut_vec = seq(0,1+step,by=step)
-  cut_vec[length(cut_vec)] = Inf
-  tpr_vec = vector(length=length(cut_vec),mode="numeric")
-  fpr_vec = vector(length=length(cut_vec),mode="numeric")
-  
-  for( i in 1:length(cut_vec) )
-  {
-    curr_mat = matrix( NA,nrow=nrow(score_mat),ncol=ncol(score_mat) )
-    curr_mat[ score_mat>=cut_vec[i] ] = 1 #large score
-    curr_mat[ score_mat< cut_vec[i] ] = 0 #small score
-    
-    curr_score = colMeans( curr_mat )
-    
-    curr_class = vector(length=length(curr_score),mode="character")
-    curr_class[curr_score>0.5] = class_1
-    curr_class[curr_score<=0.5] = class_2
-    
-    #mytable = table( curr_class,class )
-    mytable = matrix(0,nrow=2,ncol=2)
-    dimnames(mytable) = list( c(class_p,class_n), c(class_p,class_n) )
-    
-    mytable[1,1] = sum(curr_class[class==class_p]==class_p)
-    mytable[2,1] = sum(curr_class[class==class_p]==class_n)
-    mytable[1,2] = sum(curr_class[class==class_n]==class_p)
-    mytable[2,2] = sum(curr_class[class==class_n]==class_n)
-    
-    
-    if( sum(mytable[,1])!=0 )
-    {
-      tpr_vec[i] = mytable[1,1]/sum(mytable[,1])
-    }
-    if( sum(mytable[,1])==0 )
-    {
-      tpr_vec[i] = NA 
-    }
-    if( sum(mytable[,2])!=0 )
-    {
-      fpr_vec[i] = mytable[1,2]/sum(mytable[,2])
-    }
-    if( sum(mytable[,2])==0 )
-    {
-      fpr_vec[i] = NA
-    }
-    
-  }
-  
-  roc_mat = cbind(tpr_vec,fpr_vec)
-  colnames(roc_mat) = c("tpr","fpr")
-  return(roc_mat)
-  
-}
-
-
-auc_random <- function( roc, test="wilcox" )
-{
-  #roc is a list, each element is a 2-column matrix
-  #1st column as y and 2nd column as x
-  library(pracma)
-  
-  auc = c()
-  for(i in 1:length(roc))
-  {
-    curr_auc = trapz(roc[[i]][,2],roc[[i]][,1])
-    auc = c(auc,curr_auc)
-  }
-  
-  
-  if(test=="wilcox")
-  {
-    wilcox = wilcox.test(auc, alternative="greater", mu=0.5)
-    hist(auc,20,xlab="AUC",ylab="Frequency",main=NULL)
-    title("Histogram of AUC",paste("Wilcox Rank Sum Test pvalue =",wilcox$p.value))
-    return(wilcox)
-  }
-  if(test=="ttest" )
-  {
-    t_test = t.test(auc, alternative="greater", mu=0.5)
-    hist(auc,20,xlab="AUC",ylab="Frequency",main=NULL)
-    title("Histogram of AUC",paste("T Test pvalue =",t_test$p.value))
-    return(t_test)
-  }
-  if(test=="ztest")
-  {
-    library(BSDA)
-    z_test = z.test(auc,alternative="greater",mu=0.5,sigma.x=sd(auc))
-    hist(auc,20,xlab="AUC",ylab="Frequency",main=NULL)
-    title("Histogram of AUC",paste("Z Test pvalue =",z_test$p.value))
-    return(z_test)
-  }
-  
-  
-}
-
-###load data###
-##path##
-#laptop#
-# pan_path = "C:/Users/zding/workspace/projects/drug_sensitivity/results/omics_feature/cnv/cisplatin/elastic_net.logistic/pooled/"
-# sin_path = "C:/Users/zding/workspace/projects/drug_sensitivity/results/omics_feature/cnv/cisplatin/elastic_net.logistic/single/CESC/"
-# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/cnv/cisplatin.gistic2.5_fold_cv.mat.txt"
-# core.cancer = "CESC"
-# pdf_file = "pan_vs_single.cnv.elanet.pdf"
-# pan_pattern = "pan.elanet.mid_res.test_[0-9]*.20150701.txt"
-# single_pattern = "single.elanet.mid_res.test_[0-9]*.20150701.txt"
-#cluster#
-args <- commandArgs(trailingOnly=TRUE)
-pan_path = args[1]
-sin_path = args[2]
-info_file = args[3]
-core.cancer = args[4]
-pdf_file = args[5]
-pan_pattern = args[6]
-single_pattern = args[7]
 ##both##
 pan.files = list.files(path=pan_path,full.names=T,pattern=pan_pattern)
 pan_score = lapply(pan.files,read_table)
@@ -507,7 +145,7 @@ core.pats = as.character(cisplatin.info$patient[cisplatin.info$cancer == core.ca
 
 ###plot curves###
 pdf(pdf_file)
-##pan-cancer on BLCA##
+##pan-cancer on core cancer##
 cl = makeCluster(no_cores)
 registerDoParallel(cl)
 pan_roc_res <- foreach( i=1:length(pan_score) ) %dopar%
@@ -525,11 +163,14 @@ pan_roc_res <- foreach( i=1:length(pan_score) ) %dopar%
 }
 stopImplicitCluster()
 stopCluster(cl)
-pan_on_single.roc = ave_roc(  pan_roc_res,type="vertical",
-                              paste("Performance of Pan-cancer model on ",
-                                    core.cancer,sep="")
-                              measure="sd")
+pan_on_single.roc = ave_roc(  pan_roc_res,type="vertical",measure="sd",
+                              paste("Performance of Pan-cancer model on ",core.cancer,sep="") )
 
+pan_auc = lapply(pan_roc_res,function(x){xval=x[,2];
+                                         yval=x[,1];
+                                         return(trapz(xval,yval))})
+pan_auc = unlist(pan_auc)
+pan_vec = rep("pan",length(pan_auc))
 ##single cancer##
 cl = makeCluster(no_cores)
 registerDoParallel(cl)
@@ -543,11 +184,22 @@ sin_roc_res <- foreach( i=1:length(sin_score) ) %dopar%
 }
 stopImplicitCluster()
 stopCluster(cl)
-single.roc = ave_roc(sin_roc_res,type="vertical",
-                       paste("Performance of single-cancer model on ",
-                             core.cancer,sep="")
-                       measure="sd")
-
+single.roc = ave_roc(sin_roc_res,type="vertical",measure="sd",
+                       paste("Performance of single-cancer model on ",core.cancer,sep="") )
+sin_auc = lapply(sin_roc_res,function(x){xval=x[,2]
+                                         yval=x[,1]
+                                         return(trapz(xval,yval))})
+sin_auc = unlist(sin_auc)
+sin_vec = rep("sin",length(sin_auc))
+vec1 = c(pan_vec,sin_vec)
+vec2 = c(pan_auc,sin_auc)
+df_auc = data.frame(model=vec1,auc=vec2)
+fig = ggplot(data=df_auc,aes(x=model,y=auc)) + 
+  geom_boxplot(notch=T) + 
+  labs(title=paste("Average ROC comparison of ",drug,"by",data_type,sep=" "),x="cancer data",y="AUC")+ 
+  theme(text=element_text(size=15),
+        plot.title=element_text(size=18,face="bold")) 
+print(fig)
 ###plot curves###
 #plot pan cancer roc vs single cancer# 
 pan_xy = pan_on_single.roc[[1]]
@@ -605,25 +257,4 @@ ggplot( aes(y=value,x=cancer),data=all_error ) +
   theme_set(theme_gray(base_size=20))
 
 dev.off()
-#contingency table
-# i=1
-# table(pan_cancer_res[[i]][,2],pan_cancer_res[[i]][,1])
-# i=2
-# table(pan_cancer_res[[i]][,2],pan_cancer_res[[i]][,1])
-# i=3
-# table(pan_cancer_res[[i]][,2],pan_cancer_res[[i]][,1])
-# i=4
-# table(pan_cancer_res[[i]][,2],pan_cancer_res[[i]][,1])
-# i=5
-# table(pan_cancer_res[[i]][,2],pan_cancer_res[[i]][,1])
-# 
-# i=1
-# table(single_cancer_res[[i]][,2],single_cancer_res[[i]][,1])
-# i=2
-# table(single_cancer_res[[i]][,2],single_cancer_res[[i]][,1])
-# i=3
-# table(single_cancer_res[[i]][,2],single_cancer_res[[i]][,1])
-# i=4
-# table(single_cancer_res[[i]][,2],single_cancer_res[[i]][,1])
-# i=5
-# table(single_cancer_res[[i]][,2],single_cancer_res[[i]][,1])
+

@@ -45,10 +45,11 @@ no_cores = detectCores()
 
 ###load data###
 #desktop
-setwd("C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/methylation/")
-pat.info = read.table("cancer.patient.drug.response.methylation.20150330.txt",header=T,sep="\t",quote="")
-cisplatin.dat <- fread("Cisplatin.methylation450k.gdac_20141206.txt",data.table=F)
-
+# setwd("C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/methylation/")
+# pat.info = read.table("cancer.patient.drug.response.methylation.20150330.txt",header=T,sep="\t",quote="")
+# cisplatin
+# cisplatin.dat = fread("cisplatin.methylation.gdac_20141206.preprocess.txt",data.table=F)
+drug = "cisplatin"
 # #system.time( cisplatin.dat <- read.table("Cisplatin.methylation450k.gdac_20141206.txt",header=T,sep="\t",quote="",row.names=1,stringsAsFactors=FALSE) )
 # #system.time( cisplatin.dat <- fread("Cisplatin.methylation450k.gdac_20141206.txt",header=T,data.table=F) )
 
@@ -56,6 +57,11 @@ cisplatin.dat <- fread("Cisplatin.methylation450k.gdac_20141206.txt",data.table=
 args <- commandArgs(trailingOnly=TRUE)
 pat.info = read.table(args[1],header=T,sep="\t",quote="")
 cisplatin.dat = fread(args[2],data.table=F)
+output_folder = args[3]
+output_1 = args[4]
+output_2 = args[5]
+output_3 = args[6]
+drug = args[7]
 
 ###data preprocess###
 #store the probe to gene
@@ -74,7 +80,8 @@ tmp.arr[which(pat.info$response=="Stable Disease")] = "insensitive"
 tmp.arr[which(pat.info$response=="Complete Response")] = "sensitive"
 tmp.arr[which(pat.info$response=="Partial Response")] = "sensitive"
 pat.info$response = tmp.arr
-cisplatin.info = pat.info[as.character(pat.info$drug)=="Cisplatin",]
+#cisplatin.info = pat.info[as.character(pat.info$drug)=="Cisplatin",]
+cisplatin.info = pat.info[as.character(pat.info$drug)==drug,]
 
 #delete cancers with no more than 2 samples
 mytable = table(cisplatin.info$cancer)
@@ -133,44 +140,47 @@ mytable = table(cisplatin.info$cancer)
 mytable = mytable[mytable<=2]
 delete_cancer = names(mytable[mytable>0])
 delete_ix = c()
-for(i in 1:length(delete_cancer))
-{
-  ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
-  delete_ix = c(delete_ix, ix)
-}
-cisplatin.info = cisplatin.info[-delete_ix,]
-#again, calibration the info and the data
-dat.pats = c()
-both.ix = c()
-for(i in 1:ncol(cisplatin.dat))
-{
-  tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
-  tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
-  if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
+if( length(delete_ix)>0 ){
+  for(i in 1:length(delete_cancer))
   {
-    #primary.tumor.arr = c(primary.tumor.arr,i)
-    dat.pats = c(dat.pats,tmp.pat)
-    both.ix = c(both.ix,i)
+    ix = which(delete_cancer[i]==as.character(cisplatin.info$cancer))
+    delete_ix = c(delete_ix, ix)
   }
-  else
+  cisplatin.info = cisplatin.info[-delete_ix,]
+  #again, calibration the info and the data
+  dat.pats = c()
+  both.ix = c()
+  for(i in 1:ncol(cisplatin.dat))
   {
-    print(tmp)
+    tmp = strsplit(as.character(colnames(cisplatin.dat)[i]),"\\.")
+    tmp.pat = paste(tmp[[1]][2],tmp[[1]][3],tmp[[1]][4],sep="-")
+    if( (!is.na( pmatch("01",tmp[[1]][5]) )) && (!is.na(match(tmp.pat,as.character(cisplatin.info$patient)))) )
+    {
+      #primary.tumor.arr = c(primary.tumor.arr,i)
+      dat.pats = c(dat.pats,tmp.pat)
+      both.ix = c(both.ix,i)
+    }
+    else
+    {
+      print(tmp)
+    }
   }
-}
-cisplatin.dat = cisplatin.dat[,both.ix]
-cis.info.delete.ix = c()
-for(i in 1:nrow(cisplatin.info))
-{
-  tmp.pat = as.character(cisplatin.info$patient[i])
-  if( is.na(match(tmp.pat,dat.pats)))
+  cisplatin.dat = cisplatin.dat[,both.ix]
+  cis.info.delete.ix = c()
+  for(i in 1:nrow(cisplatin.info))
   {
-    cis.info.delete.ix = c(cis.info.delete.ix,i)
+    tmp.pat = as.character(cisplatin.info$patient[i])
+    if( is.na(match(tmp.pat,dat.pats)))
+    {
+      cis.info.delete.ix = c(cis.info.delete.ix,i)
+    }
+  }
+  if(length(cis.info.delete.ix)>0)
+  {
+    cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
   }
 }
-if(length(cis.info.delete.ix)>0)
-{
-  cisplatin.info = cisplatin.info[-cis.info.delete.ix,]
-}
+
 
 #delete probes that have NAs in more than 10% samples in each cancer
 #actually delete lowly expressed genes
@@ -333,7 +343,11 @@ partition_res = do.call(cbind,all_res)
 
 
 ###output
-write.table(cisplatin.dat,"cisplatin.methylation.gdac_20141206.preprocess.txt",quote=F,row.names=T,col.names=T,sep="\t")
-write.table(probe2gene,"gdac450k.probe2gene.20141206.txt",quote=F,row.names=F,col.names=F,sep="\t")
-write.table(partition_res,"cisplatin.methylation_fold_cv.mat.txt",col.names=T,row.names=F,sep="\t",quote=F)
+setwd(output_folder)
+# write.table(cisplatin.dat,"cisplatin.methylation.gdac_20141206.preprocess.txt",quote=F,row.names=T,col.names=T,sep="\t")
+# write.table(probe2gene,"gdac450k.probe2gene_cisplatin.20141206.txt",quote=F,row.names=F,col.names=F,sep="\t")
+# write.table(partition_res,"cisplatin.methylation_fold_cv.mat.txt",col.names=T,row.names=F,sep="\t",quote=F)
+write.table(cisplatin.dat,output_1,quote=F,row.names=T,col.names=T,sep="\t")
+write.table(probe2gene,output_2,quote=F,row.names=F,col.names=F,sep="\t")
+write.table(partition_res,output_3,col.names=T,row.names=F,sep="\t",quote=F)
 
