@@ -27,29 +27,31 @@ gene_set = args[14]    # NULL/gene_set
 source("source_all.R") #function file and parameter file
 
 #desktop
-# data_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/mRNAseq/cisplatin.mRNAseq.gdac_20141206.preprocess.txt"
-# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/shuffle/shuffle_response.in_cancer/mRNA_seq/cisplatin.mRNAseq_shuffle_info.1.txt"
-# output_folder = "C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic"
+# data_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/methylation/cisplatin.methylation.gdac_20141206.preprocess.txt"
+# info_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/methylation/cisplatin.methylation_fold_cv.mat.txt"
+# probe_file = "C:/Users/zding/workspace/projects/drug_sensitivity/data/omics.drug_centric/methylation/gdac450k.probe2gene_cisplatin.20141206.txt"
+# output_folder = "C:/Users/zding/workspace/projects/drug_sensitivity"
 # create_folder = "test"
 # test_fold=1
 # shuffle = NULL
 # 
-# input_type = "molecular_only" #NOTICE, input_type and output_type must be afront of source
+# input_type = "half_clinical_molecualr" #NOTICE, input_type and output_type must be afront of source
 # output_type = "performance"
-# calc_cancer = "pan_cancer"
-# calc_gene = "gene_set"
+# calc_cancer = "sin_cancer"
+# calc_gene = "all_gene"
 # 
-# core.cancer = NULL
-# gene_set = "C:/Users/zding/workspace/projects/drug_sensitivity/data/text_mining/LMMA/cisplatin_gene.pubmed.hugo.20150825.txt"
+# core.cancer = "BLCA"
+# test.cancer = NULL
+# gene_set = NULL #"C:/Users/zding/workspace/projects/drug_sensitivity/data/text_mining/LMMA/cisplatin_gene.pubmed.hugo.20150825.txt"
 # 
-# setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/mRNASeq/elastic_net.logistic/")
+# setwd("C:/Users/zding/workspace/projects/drug_sensitivity/pan-cancer-drug-response/bin.algo/methylation/elanet/")
 # source("source_all.R")
 
 
 
 #both
 #cisplatin.dat = read.table(data_file,header=T,row.names=1,sep="\t",quote="")
-cisplatin.dat = fread(args[1],data.table=F)
+cisplatin.dat = fread(data_file,data.table=F)
 cisplatin.info = read.table(info_file,sep="\t",header=T,quote="")
 test_fold = test_fold + info_col
 
@@ -144,7 +146,7 @@ if( output_type!="marker"  ) # shuffle/performance
     list_tmp = test_gene(train.dat, test.dat, train.info,parallel=T,
                          type = test_type,sig_gene = sig_gene,
                          p_thresh=p_thresh,q_thresh=q_thresh,p_step=p_step,
-                         q_step=q_step,p_up = p_up,q_up = q_up)
+                         q_step=q_step,p_up = p_up,q_up = q_up,multi_cancer=multi_cancer)
     stopImplicitCluster()
     stopCluster(cl)
     train.dat = list_tmp[[1]]
@@ -154,6 +156,8 @@ if( output_type!="marker"  ) # shuffle/performance
     tmp_str = paste("With ",type," and threshold ",thresh,", ",
                     nrow(train.dat)," genes are remained",sep="")
     print(tmp_str)
+    key_param[1,2] = thresh;
+    key_param[2,2] = nrow(train.dat)
   }
   
   
@@ -223,6 +227,8 @@ if( output_type == "marker" )
     tmp_str = paste("With ",type," and threshold ",thresh,", ",
                     nrow(train.dat)," genes are remained",sep="")
     print(tmp_str)
+    key_param[1,2] = thresh;
+    key_param[2,2] = nrow(train.dat)
   }
   
   
@@ -374,7 +380,8 @@ if( input_type != "clinical_pred")
     }
     tmp_str = paste("Sd",sd,"to select",length(list_features[[2]]),"recurrent features",sep=" ")
     print(tmp_str)
-    key_param[3,2] = length(list_features[[2]])
+    key_param[3,2] = sd
+    key_param[4,2] = length(list_features[[2]])
     
     #refine data by recurrent features
     train.dat = train.dat[list_features[[2]],]
@@ -399,6 +406,9 @@ if( output_type == "marker" )
   }else{
     write.table(feature_freq[order(feature_freq,decreasing=T)],tmp_str,row.names=T,col.names=F,quote=F,sep="\t")
   }
+  #key parameters#
+  tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
+  write.table(key_param,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
 }
 if( output_type != "marker" )
 {
@@ -492,6 +502,16 @@ if( output_type == "shuffle" )
   tmp_str = paste("AUC = ",round(auc,digits=2),sep="")
   title("Test performance on Pan-Caner",tmp_str)
   dev.off()
+  if(calc_cancer=="cross_cancer"){
+    tmp_str = paste("pan.elanet.roc.test_",test_fold-3,".20150701.txt",sep="")
+    colnames(roc) = c("tpr","fpr")
+    write.table(roc,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
+  }
+  
+  #key parameters#
+  tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
+  write.table(key_param,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
+  
 }
 
 if( output_type == "performance")
@@ -527,6 +547,9 @@ if( output_type == "performance")
   tmp_str = paste("pan.elanet.mid_res.test_",test_fold-3,".20150701.txt",sep="")
   write.table(t(test_score),tmp_str,col.names=T,row.names=F,sep="\t",quote=F)
   
+  #key parameters#
+  tmp_str = paste("pan.elanet.param.test_",test_fold-3,".20150701.txt",sep="")
+  write.table(key_param,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
   
   ##plot TEST performance##
   tmp_str = paste("pan.elanat.test_",test_fold-3,".20150701.tiff",sep="")
@@ -539,6 +562,11 @@ if( output_type == "performance")
   tmp_str = paste("AUC = ",round(auc,digits=2),sep="")
   title("Test performance on Pan-Caner",tmp_str)
   dev.off()
+  if(calc_cancer=="cross_cancer"){
+    tmp_str = paste("pan.elanet.roc.test_",test_fold-3,".20150701.txt",sep="")
+    colnames(roc) = c("tpr","fpr")
+    write.table(roc,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
+  }
 }
 
 

@@ -367,7 +367,8 @@ if( input_type != "clinical_pred")
     }
     tmp_str = paste("Sd",sd,"to select",length(list_features[[2]]),"recurrent features",sep=" ")
     print(tmp_str)
-    key_param[3,2] = length(list_features[[2]])
+    key_param[3,2] = sd
+    key_param[4,2] = length(list_features[[2]])
     
     #refine data by recurrent features
     train.dat = train.dat[list_features[[2]],]
@@ -490,6 +491,11 @@ if( output_type == "shuffle" )
   tmp_str = paste("AUC = ",round(auc,digits=2),sep="")
   title("Test performance on Pan-Caner",tmp_str)
   dev.off()
+  if(calc_cancer=="cross_cancer"){
+    tmp_str = paste("pan.elanet.roc.test_",test_fold-3,".20150701.txt",sep="")
+    colnames(roc) = c("tpr","fpr")
+    write.table(roc,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
+  }
 }
 
 if( output_type == "performance")
@@ -540,6 +546,11 @@ if( output_type == "performance")
   tmp_str = paste("AUC = ",round(auc,digits=2),sep="")
   title("Test performance on Pan-Caner",tmp_str)
   dev.off()
+  if(calc_cancer=="cross_cancer"){
+    tmp_str = paste("pan.elanet.roc.test_",test_fold-3,".20150701.txt",sep="")
+    colnames(roc) = c("tpr","fpr")
+    write.table(roc,tmp_str,row.names=F,col.names=T,quote=F,sep="\t")
+  }
 }
 
 

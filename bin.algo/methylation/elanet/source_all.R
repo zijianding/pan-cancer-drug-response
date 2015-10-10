@@ -16,12 +16,12 @@ info_col = 3
 #identify differential genes#
 find_diff_genes = TRUE
 test_type = "regression" # "ttest"/"wilcox"/"regression"
-if(calc_cancer=="sin_gene"){
+if(calc_cancer=="sin_cancer"){
   multi_cancer = F
 }else{
   multi_cancer = T
 }
-sig_gene = 1
+sig_gene = 2
 p_thresh=0.05
 q_thresh=0.05
 p_step=0.01
@@ -34,7 +34,7 @@ BS = 100
 alphas = seq(0.1,1,by=0.1)
 
 #minimum number of selected features#
-feature_min = 1
+feature_min = 2
 select_gene = "by_freq"
 freq_step = 0.05
 freq = 0.8
@@ -46,8 +46,8 @@ sd_step = 0.1
 #key parameters to output
 if( select_gene == "freqNweight")
 {
-  key_param = data.frame(param=c("p.thresh","sig.gene","freq.gene"),
-                         value=rep(NA,3) )
+  key_param = data.frame(param=c("p.thresh","sig.gene","sd","freq.gene"),
+                         value=rep(NA,4) )
 }else{
   key_param = data.frame(param=c("p.thresh","sig.gene","freq.thresh","freq.gene"),
                          value=rep(NA,4))
@@ -121,13 +121,13 @@ if( input_type == "clinical_molecular" )
 if(input_type == "half_clinical_molecular")
 {
   find_diff_genes = TRUE
-  test_type = "wilcox" # "ttest"/"wilcox"/"regression"
-  sig_gene = 50
-  p_thresh=0.05
+  test_type = "regression" # "ttest"/"wilcox"/"regression"
+  sig_gene = 2
+  p_thresh=0.01
   q_thresh=0.05
   p_step=0.01
   q_step=0.05
-  p_up = 0.1
+  p_up = 0.05
   q_up = 0.2
   
   filter_low_exp = FALSE
@@ -171,4 +171,5 @@ source("gene_selection.R")
 source("ensemble_roc.R")
 source("map_rna_gene.R")
 source("map_methy_gene.R")
+source("gene_selection_sd.R")
 

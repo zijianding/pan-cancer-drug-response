@@ -26,11 +26,15 @@ pan_path = args[2]
 sin_path = args[3]
 
 core.cancer = args[4]
-pdf_file = args[5]
-drug = "cisplatin"
-data_type = args[6]
+#pdf_file = args[5]
+#drug = "cisplatin"
+data_type = args[5]
 pan_pattern = "pan.elanet.mid_res.test_[0-9]*.20150701.txt"
 single_pattern = pan_pattern
+
+output_folder = args[6]
+create_folder = args[7]
+
 source("source_all.R")
 
 ##specific functions##
@@ -144,7 +148,9 @@ cisplatin.info = read.table(info_file,header=T,quote="",sep="\t")
 core.pats = as.character(cisplatin.info$patient[cisplatin.info$cancer == core.cancer])
 
 ###plot curves###
-pdf(pdf_file)
+dir.create(file.path(output_folder,create_folder),showWarnings = F)
+setwd(file.path(output_folder,create_folder))
+pdf("pan.vs.sin.pdf")
 ##pan-cancer on core cancer##
 cl = makeCluster(no_cores)
 registerDoParallel(cl)
@@ -196,10 +202,11 @@ vec2 = c(pan_auc,sin_auc)
 df_auc = data.frame(model=vec1,auc=vec2)
 fig = ggplot(data=df_auc,aes(x=model,y=auc)) + 
   geom_boxplot(notch=T) + 
-  labs(title=paste("Average ROC comparison of ",drug,"by",data_type,sep=" "),x="cancer data",y="AUC")+ 
+  labs(title=paste("Average ROC comparison of by",data_type,sep=" "),x="cancer data",y="AUC")+ 
   theme(text=element_text(size=15),
         plot.title=element_text(size=18,face="bold")) 
 print(fig)
+write.table(df_auc,"pan_sin.all_auc.txt",sep="\t",quote=F,col.names=T,row.names=F)
 ###plot curves###
 #plot pan cancer roc vs single cancer# 
 pan_xy = pan_on_single.roc[[1]]
